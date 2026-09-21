@@ -1056,6 +1056,15 @@ function openDetail(id) {
       </div>
 
       <div class="detail-section">
+        <div class="detail-section-title">🌐 Prompt para Desenvolvimento de Site</div>
+        <div style="color:var(--text2);font-size:12px;margin-bottom:10px;line-height:1.5">
+          Prompt pronto com os dados desse estabelecimento — cole direto no Claude, ChatGPT ou outra IA pra gerar o site.
+        </div>
+        <textarea readonly id="sitePrompt_${l.id}" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;color:var(--text);font-size:12px;font-family:'JetBrains Mono',monospace;resize:vertical;height:220px;width:100%;line-height:1.6">${buildSitePrompt(l)}</textarea>
+        <button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="copyText(document.getElementById('sitePrompt_${l.id}').value)">📋 Copiar prompt</button>
+      </div>
+
+      <div class="detail-section">
         <div class="detail-section-title">Anotações</div>
         ${(l.notas||[]).length > 0
           ? (l.notas||[]).map(n=>`<div class="note-item"><div class="note-meta">${n.data}</div><div class="note-text">${n.texto}</div></div>`).join('')
@@ -1450,6 +1459,46 @@ function exportCSV() {
 
 // ── HELPERS ────────────────────────────────────────────────────────────
 function g(id) { return document.getElementById(id)?.value?.trim() || ''; }
+function buildSitePrompt(l) {
+  const nome = l.nome || 'a empresa';
+  const nicho = l.nicho || 'negócio local';
+  const cidade = [l.cidade, l.estado].filter(Boolean).join(', ') || 'não informada';
+  const endereco = l.endereco || 'não informado';
+  const telefone = l.telefone || 'não informado';
+  const avaliacao = l.avaliacao ? `${l.avaliacao} estrelas (${l.avaliacaocount || 0} avaliações no Google)` : 'não informada';
+  const temSite = l.site ? `Já possui site: ${l.site}` : 'Não possui site próprio atualmente — só está presente no Google Maps/redes sociais';
+  const instagram = l.instagram ? `Instagram: ${l.instagram}` : '';
+  const obs = l.obs ? `Observações adicionais: ${l.obs}` : '';
+
+  return `Crie um site profissional completo para o seguinte estabelecimento:
+
+DADOS DO NEGÓCIO
+Nome: ${nome}
+Ramo de atividade: ${nicho}
+Localização: ${cidade}
+Endereço: ${endereco}
+Telefone/WhatsApp: ${telefone}
+Avaliação no Google: ${avaliacao}
+${temSite}
+${instagram}
+${obs}
+
+O QUE O SITE PRECISA TER
+1. Página inicial (hero) com nome do negócio, uma frase de efeito sobre o que ele oferece, e botão de destaque para contato via WhatsApp
+2. Seção "Sobre" explicando o diferencial do negócio no ramo de ${nicho.toLowerCase()}
+3. Seção de serviços/produtos oferecidos (adaptar para o segmento de ${nicho.toLowerCase()})
+4. Seção de avaliações/depoimentos, destacando a nota de ${l.avaliacao || 'alta avaliação'} no Google
+5. Mapa ou endereço destacado, com botão para abrir no Google Maps
+6. Botão fixo de WhatsApp para contato rápido
+7. Seção de contato com telefone, endereço e formulário simples
+8. Design responsivo (funciona bem em celular), moderno e que passe confiança
+9. Otimizado para aparecer bem no Google quando alguém buscar "${nicho} em ${cidade}"
+
+TOM E ESTILO
+Visual profissional e acolhedor, cores que combinem com o segmento de ${nicho.toLowerCase()}, tipografia legível, carregamento rápido. O objetivo principal é converter visitantes em contatos via WhatsApp ou ligação.`;
+}
+
+
 function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase(); }
 function formatDate(d) { return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}); }
 function formatWhatsApp(tel) { return tel.replace(/\D/g,''); }
