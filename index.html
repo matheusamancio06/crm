@@ -258,8 +258,8 @@ async function init() {
     await loadLeads();
     subscribeLeads();
   } catch(e) {
-    console.error(e);
-    showToast('Erro ao conectar ao banco: ' + e.message, 'error');
+    console.error('Erro na inicialização:', e?.message || String(e));
+    showToast('Erro ao conectar ao banco: ' + (e?.message || String(e)), 'error');
   }
 }
 
@@ -271,8 +271,8 @@ async function loadLeads() {
       .order('criadoem', { ascending: false });
     
     if (error) {
-      const msg = error.message || error.details || error.hint || JSON.stringify(error);
-      console.error('Erro ao carregar leads:', msg, error);
+      const msg = error.message || error.details || error.hint || 'erro desconhecido do Supabase';
+      console.error('Erro ao carregar leads:', msg);
       renderError('Erro ao carregar dados: ' + msg);
       return;
     }
@@ -281,7 +281,7 @@ async function loadLeads() {
     applyFiltersAndRender();
   } catch(e) {
     const msg = e?.message || String(e);
-    console.error('Falha de conexão:', msg, e);
+    console.error('Falha de conexão:', msg);
     renderError('Falha de conexão com o banco: ' + msg + ' — isso costuma acontecer no preview do Claude (bloqueia chamadas externas). Teste no link publicado (Netlify).');
   }
 }
@@ -838,27 +838,78 @@ async function performSearch() {
       return;
     }
     
+    const existingNames = new Set(leads.map(l => (l.nome||'').trim().toLowerCase()));
+    const newOnes = results.filter(r => !existingNames.has((r.name||'').trim().toLowerCase()));
+    const dupCount = results.length - newOnes.length;
+
     preview.innerHTML = `
-      <div style="color:var(--green);margin-bottom:12px;font-weight:600">✅ ${results.length} empresa${results.length!==1?'s':''} encontrada${results.length!==1?'s':''}</div>
-      <div style="background:var(--surface2);border-radius:var(--radius);padding:12px;max-height:300px;overflow-y:auto">
-        ${results.slice(0,10).map((r,i) => `
-          <div style="padding:12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s" onclick="selectSearchResult(${i})" class="search-item-${i}">
-            <div style="font-weight:600;font-size:13px">${r.name}</div>
-            <div style="color:var(--text2);font-size:11px;margin-top:2px">${r.address || '—'}</div>
-            <div style="color:var(--text3);font-size:11px;margin-top:2px">
-              ${r.rating ? '⭐ ' + r.rating + ' (' + r.review_count + ' aval.)' : '—'} 
-              ${r.phone ? ' · 📞 ' + r.phone : ''}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div style="color:var(--green);font-weight:600">✅ ${results.length} empresa${results.length!==1?'s':''} encontrada${results.length!==1?'s':''}${dupCount>0?` (${dupCount} já no CRM)`:''}</div>
+        ${newOnes.length > 0 ? `<button class="btn btn-primary btn-sm" onclick="addAllSearchResults(this)">⬇ Adicionar Todos (${newOnes.length})</button>` : ''}
+      </div>
+      <div style="background:var(--surface2);border-radius:var(--radius);padding:12px;max-height:340px;overflow-y:auto">
+        ${results.map((r,i) => {
+          const isDup = existingNames.has((r.name||'').trim().toLowerCase());
+          return `
+          <div style="padding:12px;border-bottom:1px solid var(--border);cursor:${isDup?'default':'pointer'};transition:background .15s;opacity:${isDup?'0.5':'1'}" ${isDup?'':`onclick="selectSearchResult(${i})"`} class="search-item-${i}">
+            <div style="display:flex;justify-content:space-between;align-items:start;gap:8px">
+              <div>
+                <div style="font-weight:600;font-size:13px">${r.name}</div>
+                <div style="color:var(--text2);font-size:11px;margin-top:2px">${r.address || '—'}</div>
+                <div style="color:var(--text3);font-size:11px;margin-top:2px">
+                  ${r.rating ? '⭐ ' + r.rating + ' (' + r.review_count + ' aval.)' : '—'} 
+                  ${r.phone ? ' · 📞 ' + r.phone : ''}
+                </div>
+              </div>
+              ${isDup ? '<span class="tag" style="flex-shrink:0">Já no CRM</span>' : ''}
             </div>
           </div>
-        `).join('')}
-        ${results.length > 10 ? `<div style="padding:12px;color:var(--text3);text-align:center">... e mais ${results.length-10} empresa${results.length-10!==1?'s':''}</div>` : ''}
+        `}).join('')}
       </div>
       <div style="margin-top:12px;padding:12px;background:var(--accent-dim);border-radius:var(--radius);color:var(--text2);font-size:12px">
-        Clique em uma empresa para adicionar ao CRM
+        Clique em uma empresa pra adicionar só ela, ou use "Adicionar Todos" pra trazer a lista inteira de uma vez
       </div>
     `;
   } catch(e) {
     preview.innerHTML = `<div style="color:var(--red);padding:16px;background:var(--red-dim);border-radius:var(--radius)">${e.message}</div>`;
+  }
+}
+
+async function addAllSearchResults(btn) {
+  const existingNames = new Set(leads.map(l => (l.nome||'').trim().toLowerCase()));
+  const newOnes = searchResults.filter(r => !existingNames.has((r.name||'').trim().toLowerCase()));
+  if (newOnes.length === 0) { showToast('Nada novo para adicionar', 'error'); return; }
+
+  if (btn) { btn.textContent = 'Adicionando...'; btn.disabled = true; }
+
+  const rows = newOnes.map(r => ({
+    nome: r.name || '',
+    nicho: r.type || '',
+    endereco: r.address || '',
+    telefone: r.phone || '',
+    site: r.website || '',
+    googlemaps: r.maps_url || '',
+    avaliacao: r.rating || null,
+    avaliacaocount: r.review_count || 0,
+    score: null,
+    oportunidade: r.website ? 'Baixa' : 'Alta',
+    status: 'Novo',
+    obs: `Importado do Google Maps (${r.type})`,
+    favorito: false,
+    notas: [],
+    historico: [{status:'Novo', data: formatDate(new Date())}],
+    criadoem: new Date().toISOString(),
+    atualizadoem: new Date().toISOString()
+  }));
+
+  try {
+    const { error } = await sb.from('leads').insert(rows);
+    if (error) throw error;
+    showToast(`${rows.length} lead${rows.length!==1?'s':''} adicionado${rows.length!==1?'s':''} ao CRM ✅`, 'success');
+    closeModal();
+    await loadLeads();
+  } catch(e) {
+    showToast('Erro ao adicionar leads: ' + e.message, 'error');
   }
 }
 
