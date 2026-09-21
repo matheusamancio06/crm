@@ -249,7 +249,6 @@ let sortField = 'oportunidade';
 let sortDir = 'desc';
 let currentModal = null;
 let selectedLead = null;
-let apiKey = localStorage.getItem('serpapi_key') || '';
 let searchResults = [];
 
 // ── INIT ──────────────────────────────────────────────────────────────
@@ -360,8 +359,7 @@ function renderApp() {
         <span>LeadSite CRM</span>
       </div>
       <div class="topbar-actions">
-        <button class="btn btn-ghost btn-sm" onclick="configureAPI()" title="Configurar SerpAPI">🔑 API</button>
-        <button class="btn btn-ghost btn-sm" onclick="openSearch()" title="Buscar empresas no Google" ${apiKey ? '' : 'disabled'}>🔍 Buscar Google</button>
+        <button class="btn btn-ghost btn-sm" onclick="openSearch()" title="Buscar empresas no Google">🔍 Buscar Google</button>
         <button class="btn btn-ghost btn-sm" onclick="openImport()">⬆ Importar CSV</button>
         <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇ Exportar CSV</button>
         <button class="btn btn-primary btn-sm" onclick="openAddLead()">+ Novo Lead</button>
@@ -784,52 +782,7 @@ function computeStats() {
 }
 
 // ── MODALS ─────────────────────────────────────────────────────────────
-function configureAPI() {
-  showModal(`
-    <div class="modal-header">
-      <span class="modal-title">🔑 Configurar SerpAPI</span>
-      <button class="action-btn" onclick="closeModal()">✕</button>
-    </div>
-    <div class="modal-body">
-      <div style="margin-bottom:16px;color:var(--text2);font-size:13px;line-height:1.6">
-        Para buscar empresas automaticamente no Google Maps, você precisa de uma chave de API do SerpAPI.
-        <br><br>
-        <strong>Como pegar:</strong><br>
-        1. Acesse <a href="https://serpapi.com/" target="_blank" style="color:var(--accent)">serpapi.com</a><br>
-        2. Clique em "Sign Up"<br>
-        3. Crie sua conta e confirme o email<br>
-        4. Na dashboard, copie sua "API Key"<br>
-        5. Cole aqui abaixo
-        <br><br>
-        Você terá <strong>100 buscas grátis por mês</strong> (nunca expira!)
-      </div>
-      <div class="field" style="margin-bottom:16px">
-        <label>Sua Chave SerpAPI</label>
-        <input type="password" id="apiKeyInput" placeholder="Colar aqui..." value="${apiKey}" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;outline:none;width:100%">
-      </div>
-      <div style="background:var(--surface2);border-left:3px solid var(--yellow);padding:12px;border-radius:4px;font-size:12px;color:var(--text2)">
-        ⚠️ Sua chave é armazenada <strong>apenas no seu navegador</strong>. Nunca será enviada para servidores externos.
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveAPIKey()">Salvar Chave</button>
-    </div>
-  `);
-}
-
-function saveAPIKey() {
-  const key = document.getElementById('apiKeyInput')?.value?.trim();
-  if (!key) { showToast('Cole sua chave de API', 'error'); return; }
-  if (key.length < 20) { showToast('Chave parece inválida (muito curta)', 'error'); return; }
-  localStorage.setItem('serpapi_key', key);
-  apiKey = key;
-  closeModal();
-  showToast('Chave salva com sucesso! ✅', 'success');
-}
-
 function openSearch() {
-  if (!apiKey) { showToast('Configure sua chave de API primeiro', 'error'); return; }
   showModal(`
     <div class="modal-header">
       <span class="modal-title">🔍 Buscar Empresas no Google Maps</span>
@@ -901,7 +854,7 @@ async function performSearch() {
         ${results.length > 10 ? `<div style="padding:12px;color:var(--text3);text-align:center">... e mais ${results.length-10} empresa${results.length-10!==1?'s':''}</div>` : ''}
       </div>
       <div style="margin-top:12px;padding:12px;background:var(--accent-dim);border-radius:var(--radius);color:var(--text2);font-size:12px">
-        Clique em uma empresa para adicionar ao CRM, ou clique em "Adicionar Todos" abaixo
+        Clique em uma empresa para adicionar ao CRM
       </div>
     `;
   } catch(e) {
@@ -910,25 +863,15 @@ async function performSearch() {
 }
 
 async function searchCompanies(nicho, cidade) {
-  const query = `${nicho} em ${cidade}`;
-  const url = `https://serpapi.com/search?engine=google_maps&q=${encodeURIComponent(query)}&api_key=${apiKey}&num=30`;
+  // Chama a Netlify Function (backend), que por sua vez chama a SerpAPI.
+  // Isso evita o bloqueio de CORS e mantém a chave de API fora do navegador.
+  const url = `/.netlify/functions/search-leads?nicho=${encodeURIComponent(nicho)}&cidade=${encodeURIComponent(cidade)}`;
   
   const response = await fetch(url);
   const data = await response.json();
   
-  if (data.error) throw new Error('Erro na API: ' + data.error);
-  if (!data.place_results) return [];
-  
-  return data.place_results.map(p => ({
-    name: p.title || '—',
-    address: p.address || '—',
-    phone: p.phone || '',
-    website: p.website || '',
-    rating: p.rating || null,
-    review_count: p.review_count || 0,
-    maps_url: p.review_url || p.maps_url || '',
-    type: p.type || nicho
-  }));
+  if (data.error) throw new Error(data.error);
+  return data.results || [];
 }
 
 function selectSearchResult(idx) {
