@@ -805,6 +805,14 @@ function openSearch() {
           <input type="text" id="searchCidade" placeholder="Ex: São Paulo" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;outline:none;width:100%">
         </div>
       </div>
+      <div class="field" style="margin-top:12px">
+        <label>Cobertura da busca</label>
+        <select id="searchPages" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;outline:none;width:100%;cursor:pointer">
+          <option value="1">Até 20 empresas (gasta 1 busca do seu plano)</option>
+          <option value="3" selected>Até 60 empresas (gasta 3 buscas do seu plano)</option>
+          <option value="6">Até 120 empresas — cobertura máxima (gasta 6 buscas do seu plano)</option>
+        </select>
+      </div>
       <div id="searchPreview" style="margin-top:16px"></div>
     </div>
     <div class="modal-footer">
@@ -822,15 +830,16 @@ async function performSearch() {
   let nicho = document.getElementById('searchNicho')?.value?.trim();
   const nichoCustom = document.getElementById('searchNichoCustom')?.value?.trim();
   const cidade = document.getElementById('searchCidade')?.value?.trim();
+  const pages = document.getElementById('searchPages')?.value || '3';
   
   if (nicho === 'custom') nicho = nichoCustom;
   if (!nicho || !cidade) { showToast('Preencha nicho e cidade', 'error'); return; }
   
   const preview = document.getElementById('searchPreview');
-  preview.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
+  preview.innerHTML = `<div class="loading"><div class="spinner"></div></div><div style="text-align:center;color:var(--text3);font-size:12px;margin-top:-8px">Buscando${pages>1?' (várias páginas, pode levar alguns segundos)':''}...</div>`;
   
   try {
-    const results = await searchCompanies(nicho, cidade);
+    const results = await searchCompanies(nicho, cidade, pages);
     searchResults = results;
     
     if (results.length === 0) {
@@ -913,10 +922,10 @@ async function addAllSearchResults(btn) {
   }
 }
 
-async function searchCompanies(nicho, cidade) {
+async function searchCompanies(nicho, cidade, pages) {
   // Chama a Netlify Function (backend), que por sua vez chama a SerpAPI.
   // Isso evita o bloqueio de CORS e mantém a chave de API fora do navegador.
-  const url = `/.netlify/functions/search-leads?nicho=${encodeURIComponent(nicho)}&cidade=${encodeURIComponent(cidade)}`;
+  const url = `/.netlify/functions/search-leads?nicho=${encodeURIComponent(nicho)}&cidade=${encodeURIComponent(cidade)}&pages=${encodeURIComponent(pages || '3')}`;
   
   const response = await fetch(url);
   const data = await response.json();
