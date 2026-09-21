@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LeadSite CRM — Prospecção de Sites</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #21262d;
+    --surface3: #30363d;
+    --border: #30363d;
+    --border2: #3d444d;
+    --text: #e6edf3;
+    --text2: #8b949e;
+    --text3: #6e7681;
+    --accent: #2f81f7;
+    --accent-dim: #1f6feb33;
+    --green: #3fb950;
+    --green-dim: #3fb95022;
+    --yellow: #d29922;
+    --yellow-dim: #d2992222;
+    --red: #f85149;
+    --red-dim: #f8514922;
+    --purple: #8b5cf6;
+    --purple-dim: #8b5cf622;
+    --orange: #f97316;
+    --orange-dim: #f9731622;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; font-size: 14px; min-height: 100vh; }
+
+  /* LAYOUT */
+  .app { display: flex; flex-direction: column; min-height: 100vh; }
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 100; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; }
+  .logo-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .topbar-actions { display: flex; align-items: center; gap: 8px; }
+  .main { flex: 1; padding: 24px; max-width: 1600px; margin: 0 auto; width: 100%; }
+
+  /* TABS */
+  .tabs { display: flex; gap: 2px; margin-bottom: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px; width: fit-content; }
+  .tab { padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text2); transition: all .15s; border: none; background: none; }
+  .tab.active { background: var(--surface3); color: var(--text); }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  /* STATS */
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; }
+  .stat-label { font-size: 12px; color: var(--text2); font-weight: 500; letter-spacing: .02em; margin-bottom: 8px; }
+  .stat-value { font-size: 28px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+  .stat-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+  .stat-card.green .stat-value { color: var(--green); }
+  .stat-card.blue .stat-value { color: var(--accent); }
+  .stat-card.yellow .stat-value { color: var(--yellow); }
+  .stat-card.red .stat-value { color: var(--red); }
+  .stat-card.purple .stat-value { color: var(--purple); }
+
+  /* FILTERS */
+  .filters-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; align-items: center; }
+  .search-wrap { position: relative; flex: 1; min-width: 220px; max-width: 380px; }
+  .search-wrap input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px 8px 36px; color: var(--text); font-size: 13px; font-family: 'Inter', sans-serif; outline: none; transition: border-color .15s; }
+  .search-wrap input:focus { border-color: var(--accent); }
+  .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text3); font-size: 15px; }
+  select { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; color: var(--text); font-size: 13px; font-family: 'Inter', sans-serif; outline: none; cursor: pointer; }
+  select:focus { border-color: var(--accent); }
+
+  /* LEADS TABLE */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .table-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .table-title { font-size: 13px; font-weight: 500; color: var(--text2); }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 600; color: var(--text3); letter-spacing: .06em; text-transform: uppercase; border-bottom: 1px solid var(--border); background: var(--surface2); }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; cursor: pointer; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+  td { padding: 14px 16px; vertical-align: middle; }
+  .lead-name { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+  .lead-meta { font-size: 11px; color: var(--text2); }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-alta { background: var(--green-dim); color: var(--green); }
+  .badge-media { background: var(--yellow-dim); color: var(--yellow); }
+  .badge-baixa { background: var(--red-dim); color: var(--red); }
+  .badge-site { background: var(--purple-dim); color: var(--purple); }
+  .badge-nosite { background: var(--orange-dim); color: var(--orange); }
+  .stars { color: var(--yellow); font-size: 12px; }
+  .rating-count { color: var(--text3); font-size: 11px; margin-left: 4px; }
+  .contact-links { display: flex; gap: 6px; flex-wrap: wrap; }
+  .contact-link { font-size: 11px; padding: 3px 8px; border-radius: 4px; cursor: pointer; text-decoration: none; font-weight: 500; border: none; }
+  .cl-whatsapp { background: #25d36622; color: #25d366; }
+  .cl-maps { background: var(--red-dim); color: var(--red); }
+  .cl-site { background: var(--accent-dim); color: var(--accent); }
+  .cl-insta { background: #e1306c22; color: #e1306c; }
+  .cl-copy { background: var(--surface3); color: var(--text2); }
+  .status-select { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; color: var(--text); font-size: 11px; font-family: 'Inter', sans-serif; cursor: pointer; }
+  .action-btn { background: none; border: none; cursor: pointer; color: var(--text2); font-size: 18px; padding: 4px 6px; border-radius: 4px; transition: all .15s; }
+  .action-btn:hover { background: var(--surface3); color: var(--text); }
+  .star-btn { color: var(--text3); }
+  .star-btn.starred { color: #f0c040; }
+
+  /* BUTTONS */
+  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 16px; border-radius: var(--radius); font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all .15s; font-family: 'Inter', sans-serif; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #388bfd; }
+  .btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+  .btn-danger { background: var(--red-dim); color: var(--red); border: 1px solid var(--red); }
+  .btn-danger:hover { background: var(--red); color: #fff; }
+  .btn-green { background: var(--green-dim); color: var(--green); border: 1px solid var(--green); }
+  .btn-green:hover { background: var(--green); color: #000; }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; background: #00000099; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .modal { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-lg); width: 100%; max-width: 680px; max-height: 88vh; overflow-y: auto; }
+  .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .modal-title { font-size: 16px; font-weight: 700; }
+  .modal-body { padding: 24px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .form-row.full { grid-template-columns: 1fr; }
+  .form-row.three { grid-template-columns: 1fr 1fr 1fr; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 12px; font-weight: 500; color: var(--text2); }
+  .field input, .field select, .field textarea { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 9px 12px; color: var(--text); font-size: 13px; font-family: 'Inter', sans-serif; outline: none; transition: border-color .15s; width: 100%; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+  .field textarea { resize: vertical; min-height: 80px; }
+
+  /* DETAILS PANEL */
+  .detail-section { margin-bottom: 20px; }
+  .detail-section-title { font-size: 11px; font-weight: 600; color: var(--text3); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 10px; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .detail-item { background: var(--surface2); border-radius: var(--radius); padding: 10px 14px; }
+  .detail-item-label { font-size: 11px; color: var(--text3); margin-bottom: 3px; }
+  .detail-item-value { font-size: 13px; font-weight: 500; word-break: break-word; }
+
+  /* NOTES / HISTORY */
+  .note-item { background: var(--surface2); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 8px; }
+  .note-meta { font-size: 11px; color: var(--text3); margin-bottom: 6px; }
+  .note-text { font-size: 13px; line-height: 1.5; }
+
+  /* KANBAN */
+  .kanban-wrap { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 16px; }
+  .kanban-col { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); min-width: 260px; max-width: 280px; flex-shrink: 0; }
+  .kanban-col-header { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .kanban-col-title { font-size: 12px; font-weight: 600; }
+  .kanban-count { background: var(--surface3); color: var(--text2); font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+  .kanban-cards { padding: 10px; display: flex; flex-direction: column; gap: 8px; min-height: 120px; }
+  .kanban-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; cursor: pointer; transition: border-color .15s; }
+  .kanban-card:hover { border-color: var(--accent); }
+  .kanban-card-name { font-weight: 600; font-size: 12px; margin-bottom: 4px; }
+  .kanban-card-meta { font-size: 11px; color: var(--text2); }
+  .kanban-card-badges { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
+
+  /* ANALYTICS */
+  .analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; }
+  .chart-title { font-size: 13px; font-weight: 600; margin-bottom: 16px; }
+  .bar-list { display: flex; flex-direction: column; gap: 10px; }
+  .bar-item { display: flex; flex-direction: column; gap: 4px; }
+  .bar-label { display: flex; justify-content: space-between; font-size: 12px; }
+  .bar-track { background: var(--surface3); border-radius: 4px; height: 6px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width .5s ease; }
+  .donut-wrap { display: flex; align-items: center; justify-content: center; gap: 24px; }
+  .donut-legend { display: flex; flex-direction: column; gap: 8px; }
+  .donut-legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .donut-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* IMPORT */
+  .import-area { border: 2px dashed var(--border2); border-radius: var(--radius-lg); padding: 40px; text-align: center; cursor: pointer; transition: border-color .15s; }
+  .import-area:hover { border-color: var(--accent); }
+  .import-area.drag { border-color: var(--accent); background: var(--accent-dim); }
+  .import-icon { font-size: 40px; margin-bottom: 12px; }
+
+  /* TOAST */
+  .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+  .toast { background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 12px 16px; font-size: 13px; min-width: 240px; display: flex; align-items: center; gap: 10px; animation: slideIn .2s ease; box-shadow: 0 4px 20px #00000066; }
+  .toast.success { border-color: var(--green); }
+  .toast.error { border-color: var(--red); }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* EMPTY */
+  .empty-state { padding: 60px; text-align: center; color: var(--text3); }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-text { font-size: 14px; margin-bottom: 4px; color: var(--text2); }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+
+  /* LOADING */
+  .loading { display: flex; align-items: center; justify-content: center; padding: 60px; }
+  .spinner { width: 28px; height: 28px; border: 3px solid var(--surface3); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* PROGRESS */
+  .progress-bar { background: var(--surface3); border-radius: 4px; height: 4px; overflow: hidden; margin-top: 6px; }
+  .progress-fill { height: 100%; background: var(--accent); transition: width .4s; }
+
+  /* SEPARATOR */
+  .section-sep { height: 1px; background: var(--border); margin: 20px 0; }
+
+  .tag-list { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .tag { background: var(--surface3); color: var(--text2); font-size: 11px; padding: 3px 8px; border-radius: 4px; }
+
+  .priority-indicator { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .p-alta { background: var(--green); }
+  .p-media { background: var(--yellow); }
+  .p-baixa { background: var(--red); }
+
+  @media (max-width: 768px) {
+    .main { padding: 16px; }
+    .form-row { grid-template-columns: 1fr; }
+    .analytics-grid { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="loading"><div class="spinner"></div></div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<script>
+const STATUS_OPTIONS = ['Novo','Contatado','Proposta Enviada','Em Negociação','Fechado','Descartado'];
+const OPP_OPTIONS = ['Alta','Média','Baixa'];
+const NICHO_OPTIONS = ['Restaurante','Bar/Lanchonete','Salão de Beleza','Academia','Clínica','Advocacia','Contabilidade','Imobiliária','Comércio','Serviços','Educação','Hotel/Pousada','Petshop','Farmácia','Outros'];
+const STATUS_COLOR = { 'Novo':'#8b5cf6','Contatado':'#2f81f7','Proposta Enviada':'#d29922','Em Negociação':'#f97316','Fechado':'#3fb950','Descartado':'#f85149' };
+
+let db = null;
+let leads = [];
+let filteredLeads = [];
+let currentTab = 'leads';
+let filters = { search:'', cidade:'', status:'', oportunidade:'', site:'', nicho:'' };
+let sortField = 'oportunidade';
+let sortDir = 'desc';
+let currentModal = null;
+let selectedLead = null;
+let unsubLeads = null;
+let apiKey = localStorage.getItem('serpapi_key') || '';
+let searchResults = [];
+
+// ── INIT ──────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    db = await claude.use('db');
+    if (!db) { renderNoDB(); return; }
+    subscribeLeads();
+  } catch(e) {
+    renderNoDB();
+  }
+}
+
+function subscribeLeads() {
+  if (unsubLeads) unsubLeads();
+  unsubLeads = db.collection('leads').onSnapshot(snap => {
+    leads = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    applyFiltersAndRender();
+  }, err => {
+    console.error(err);
+    showToast('Erro ao carregar leads: ' + err.code, 'error');
+  });
+}
+
+// ── FILTER & SORT ──────────────────────────────────────────────────────
+function applyFiltersAndRender() {
+  let list = [...leads];
+  const q = filters.search.toLowerCase();
+  if (q) list = list.filter(l =>
+    (l.nome||'').toLowerCase().includes(q) ||
+    (l.cidade||'').toLowerCase().includes(q) ||
+    (l.telefone||'').toLowerCase().includes(q) ||
+    (l.endereco||'').toLowerCase().includes(q) ||
+    (l.nicho||'').toLowerCase().includes(q)
+  );
+  if (filters.cidade) list = list.filter(l => (l.cidade||'') === filters.cidade);
+  if (filters.status) list = list.filter(l => (l.status||'Novo') === filters.status);
+  if (filters.oportunidade) list = list.filter(l => (l.oportunidade||'') === filters.oportunidade);
+  if (filters.nicho) list = list.filter(l => (l.nicho||'') === filters.nicho);
+  if (filters.site === 'sem') list = list.filter(l => !l.site || l.site === '');
+  if (filters.site === 'com') list = list.filter(l => l.site && l.site !== '');
+
+  list.sort((a,b) => {
+    let va = a[sortField] ?? '', vb = b[sortField] ?? '';
+    if (sortField === 'oportunidade') {
+      const order = {Alta:0, Média:1, Baixa:2};
+      va = order[va] ?? 9; vb = order[vb] ?? 9;
+    }
+    if (sortField === 'avaliacao') { va = parseFloat(va)||0; vb = parseFloat(vb)||0; }
+    if (va < vb) return sortDir === 'asc' ? -1 : 1;
+    if (va > vb) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  filteredLeads = list;
+  renderApp();
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────────
+function renderApp() {
+  const app = document.getElementById('app');
+  const cidades = [...new Set(leads.map(l => l.cidade).filter(Boolean))].sort();
+  const nichos = [...new Set(leads.map(l => l.nicho).filter(Boolean))].sort();
+  const stats = computeStats();
+
+  app.innerHTML = `
+    <div class="topbar">
+      <div class="logo">
+        <div class="logo-icon">🎯</div>
+        <span>LeadSite CRM</span>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-ghost btn-sm" onclick="configureAPI()" title="Configurar SerpAPI">🔑 API</button>
+        <button class="btn btn-ghost btn-sm" onclick="openSearch()" title="Buscar empresas no Google" ${apiKey ? '' : 'disabled'}>🔍 Buscar Google</button>
+        <button class="btn btn-ghost btn-sm" onclick="openImport()">⬆ Importar CSV</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇ Exportar CSV</button>
+        <button class="btn btn-primary btn-sm" onclick="openAddLead()">+ Novo Lead</button>
+      </div>
+    </div>
+    <div class="main">
+      <div class="tabs">
+        ${['leads','kanban','analytics','prompts'].map(t => `
+          <button class="tab ${currentTab===t?'active':''}" onclick="switchTab('${t}')">
+            ${{leads:'📋 Leads', kanban:'📊 Kanban', analytics:'📈 Analytics', prompts:'✉️ Prompts'}[t]}
+          </button>
+        `).join('')}
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card blue">
+          <div class="stat-label">Total de Leads</div>
+          <div class="stat-value">${leads.length}</div>
+          <div class="stat-sub">na base de dados</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">Alta Oportunidade</div>
+          <div class="stat-value">${stats.alta}</div>
+          <div class="stat-sub">bom potencial para site</div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-label">Sem Site Próprio</div>
+          <div class="stat-value">${stats.semSite}</div>
+          <div class="stat-sub">só redes sociais</div>
+        </div>
+        <div class="stat-card purple">
+          <div class="stat-label">Telefone Válido</div>
+          <div class="stat-value">${stats.comTel}</div>
+          <div class="stat-sub">prontos para contato</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-label">Fechados</div>
+          <div class="stat-value">${stats.fechados}</div>
+          <div class="stat-sub">contratos assinados</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Nota Média Google</div>
+          <div class="stat-value" style="color:var(--yellow)">${stats.avgRating}</div>
+          <div class="stat-sub">⭐ avaliação média</div>
+        </div>
+      </div>
+
+      ${currentTab === 'leads' ? renderLeadsTab(cidades, nichos) : ''}
+      ${currentTab === 'kanban' ? renderKanban() : ''}
+      ${currentTab === 'analytics' ? renderAnalytics(stats) : ''}
+      ${currentTab === 'prompts' ? renderPrompts() : ''}
+    </div>
+  `;
+}
+
+function renderLeadsTab(cidades, nichos) {
+  return `
+    <div class="filters-row">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" placeholder="Buscar nome, cidade, telefone..." value="${filters.search}"
+          oninput="filters.search=this.value; applyFiltersAndRender()">
+      </div>
+      <select onchange="filters.cidade=this.value; applyFiltersAndRender()">
+        <option value="">Todas as cidades</option>
+        ${cidades.map(c=>`<option value="${c}" ${filters.cidade===c?'selected':''}>${c}</option>`).join('')}
+      </select>
+      <select onchange="filters.status=this.value; applyFiltersAndRender()">
+        <option value="">Todos os status</option>
+        ${STATUS_OPTIONS.map(s=>`<option value="${s}" ${filters.status===s?'selected':''}>${s}</option>`).join('')}
+      </select>
+      <select onchange="filters.oportunidade=this.value; applyFiltersAndRender()">
+        <option value="">Toda oportunidade</option>
+        ${OPP_OPTIONS.map(o=>`<option value="${o}" ${filters.oportunidade===o?'selected':''}>${o}</option>`).join('')}
+      </select>
+      <select onchange="filters.site=this.value; applyFiltersAndRender()">
+        <option value="">Com ou sem site</option>
+        <option value="sem" ${filters.site==='sem'?'selected':''}>Sem site próprio</option>
+        <option value="com" ${filters.site==='com'?'selected':''}>Com site próprio</option>
+      </select>
+      <select onchange="filters.nicho=this.value; applyFiltersAndRender()">
+        <option value="">Qualquer nicho</option>
+        ${nichos.map(n=>`<option value="${n}" ${filters.nicho===n?'selected':''}>${n}</option>`).join('')}
+      </select>
+      <button class="btn btn-ghost btn-sm" onclick="clearFilters()">✕ Limpar</button>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-header">
+        <span class="table-title">${filteredLeads.length} lead${filteredLeads.length!==1?'s':''} exibido${filteredLeads.length!==1?'s':''}</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span style="font-size:11px;color:var(--text3)">Ordenar:</span>
+          <select style="font-size:11px;padding:4px 8px" onchange="sortField=this.value; applyFiltersAndRender()">
+            <option value="oportunidade" ${sortField==='oportunidade'?'selected':''}>Oportunidade</option>
+            <option value="avaliacao" ${sortField==='avaliacao'?'selected':''}>Avaliação</option>
+            <option value="nome" ${sortField==='nome'?'selected':''}>Nome</option>
+            <option value="status" ${sortField==='status'?'selected':''}>Status</option>
+            <option value="criadoEm" ${sortField==='criadoEm'?'selected':''}>Data de entrada</option>
+          </select>
+          <select style="font-size:11px;padding:4px 8px" onchange="sortDir=this.value; applyFiltersAndRender()">
+            <option value="asc">↑ Asc</option>
+            <option value="desc" ${sortDir==='desc'?'selected':''}>↓ Desc</option>
+          </select>
+        </div>
+      </div>
+      ${filteredLeads.length === 0 ? `
+        <div class="empty-state">
+          <div class="empty-icon">📭</div>
+          <div class="empty-text">Nenhum lead encontrado</div>
+          <div style="font-size:12px;margin-top:8px;color:var(--text3)">Adicione leads manualmente ou importe via CSV</div>
+          <button class="btn btn-primary btn-sm" style="margin-top:16px" onclick="openAddLead()">+ Adicionar primeiro lead</button>
+        </div>
+      ` : `
+      <table>
+        <thead>
+          <tr>
+            <th style="width:32px"></th>
+            <th>Lead</th>
+            <th>Oportunidade</th>
+            <th>Google</th>
+            <th>Site</th>
+            <th>Nicho</th>
+            <th>Contatos</th>
+            <th>Status</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filteredLeads.map(l => renderLeadRow(l)).join('')}
+        </tbody>
+      </table>
+      `}
+    </div>
+  `;
+}
+
+function renderLeadRow(l) {
+  const stars = l.avaliacao ? '★'.repeat(Math.round(l.avaliacao)) + '☆'.repeat(5-Math.round(l.avaliacao)) : '—';
+  const oppClass = {Alta:'badge-alta',Média:'badge-media',Baixa:'badge-baixa'}[l.oportunidade] || 'badge-media';
+  const siteClass = l.site ? 'badge-site' : 'badge-nosite';
+  const siteLabel = l.site ? 'Tem Site' : 'Sem Site';
+  const statusColor = STATUS_COLOR[l.status||'Novo'] || '#8b5cf6';
+
+  return `<tr onclick="openDetail('${l.id}')">
+    <td onclick="event.stopPropagation()">
+      <button class="action-btn star-btn ${l.favorito?'starred':''}" onclick="toggleStar('${l.id}',${!l.favorito})" title="Favoritar">★</button>
+    </td>
+    <td>
+      <div class="lead-name">${l.nome || '—'}</div>
+      <div class="lead-meta">${[l.cidade, l.estado].filter(Boolean).join(' · ')}</div>
+      ${l.nicho ? `<div style="margin-top:3px"><span class="tag">${l.nicho}</span></div>` : ''}
+    </td>
+    <td><span class="badge ${oppClass}"><span class="priority-indicator p-${(l.oportunidade||'media').toLowerCase()}"></span>${l.oportunidade || '—'} ${l.score ? '· '+l.score : ''}</span></td>
+    <td>
+      ${l.avaliacao ? `<span class="stars">${l.avaliacao}⭐</span><span class="rating-count">${l.avaliacaoCount ? l.avaliacaoCount+' aval.' : ''}</span>` : '<span style="color:var(--text3)">—</span>'}
+    </td>
+    <td><span class="badge ${siteClass}">${siteLabel}</span></td>
+    <td style="color:var(--text2);font-size:12px">${l.nicho || '—'}</td>
+    <td onclick="event.stopPropagation()">
+      <div class="contact-links">
+        ${l.telefone ? `<a class="contact-link cl-whatsapp" href="https://wa.me/${formatWhatsApp(l.telefone)}" target="_blank">WhatsApp</a>` : ''}
+        ${l.googleMaps ? `<a class="contact-link cl-maps" href="${l.googleMaps}" target="_blank">Maps</a>` : ''}
+        ${l.site ? `<a class="contact-link cl-site" href="${l.site}" target="_blank">Site</a>` : ''}
+        ${l.instagram ? `<a class="contact-link cl-insta" href="${l.instagram}" target="_blank">Insta</a>` : ''}
+        ${l.telefone ? `<button class="contact-link cl-copy" onclick="copyText('${l.telefone}')">📋 Tel</button>` : ''}
+      </div>
+    </td>
+    <td onclick="event.stopPropagation()">
+      <select class="status-select" onchange="updateStatus('${l.id}',this.value)" style="border-color:${statusColor}33;color:${statusColor}">
+        ${STATUS_OPTIONS.map(s=>`<option value="${s}" ${(l.status||'Novo')===s?'selected':''}>${s}</option>`).join('')}
+      </select>
+    </td>
+    <td onclick="event.stopPropagation()">
+      <div style="display:flex;gap:2px">
+        <button class="action-btn" onclick="openDetail('${l.id}')" title="Ver detalhes">👁</button>
+        <button class="action-btn" onclick="openEdit('${l.id}')" title="Editar">✏️</button>
+        <button class="action-btn" onclick="confirmDelete('${l.id}')" title="Excluir" style="color:var(--red)">🗑</button>
+      </div>
+    </td>
+  </tr>`;
+}
+
+function renderKanban() {
+  const cols = STATUS_OPTIONS.map(s => ({
+    status: s,
+    color: STATUS_COLOR[s],
+    leads: filteredLeads.filter(l => (l.status||'Novo') === s)
+  }));
+  return `
+    <div class="kanban-wrap">
+      ${cols.map(col => `
+        <div class="kanban-col">
+          <div class="kanban-col-header">
+            <span class="kanban-col-title" style="color:${col.color}">${col.status}</span>
+            <span class="kanban-count">${col.leads.length}</span>
+          </div>
+          <div class="kanban-cards">
+            ${col.leads.length === 0 ? `<div style="color:var(--text3);font-size:12px;padding:8px;text-align:center">Vazio</div>` : ''}
+            ${col.leads.map(l => `
+              <div class="kanban-card" onclick="openDetail('${l.id}')">
+                <div class="kanban-card-name">${l.nome}</div>
+                <div class="kanban-card-meta">${[l.cidade, l.estado].filter(Boolean).join(' · ')}</div>
+                ${l.telefone ? `<div class="kanban-card-meta">📞 ${l.telefone}</div>` : ''}
+                <div class="kanban-card-badges">
+                  ${l.oportunidade ? `<span class="badge ${['badge-alta','badge-media','badge-baixa'][['Alta','Média','Baixa'].indexOf(l.oportunidade)]||'badge-media'}" style="font-size:10px">${l.oportunidade}</span>` : ''}
+                  ${l.nicho ? `<span class="tag" style="font-size:10px">${l.nicho}</span>` : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderAnalytics(stats) {
+  const totalLeads = leads.length || 1;
+  const statusCounts = STATUS_OPTIONS.map(s => ({ s, n: leads.filter(l=>(l.status||'Novo')===s).length }));
+  const nichoCounts = [...new Set(leads.map(l=>l.nicho).filter(Boolean))].map(n => ({ n, c: leads.filter(l=>l.nicho===n).length })).sort((a,b)=>b.c-a.c).slice(0,8);
+  const cidadeCounts = [...new Set(leads.map(l=>l.cidade).filter(Boolean))].map(c => ({ c, n: leads.filter(l=>l.cidade===c).length })).sort((a,b)=>b.n-a.n).slice(0,8);
+
+  return `
+    <div class="analytics-grid">
+      <div class="chart-card">
+        <div class="chart-title">📊 Leads por Status</div>
+        <div class="bar-list">
+          ${statusCounts.map(({s,n}) => `
+            <div class="bar-item">
+              <div class="bar-label"><span>${s}</span><span style="color:var(--text2);font-family:monospace">${n}</span></div>
+              <div class="bar-track"><div class="bar-fill" style="width:${(n/totalLeads*100).toFixed(1)}%;background:${STATUS_COLOR[s]}"></div></div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🍕 Leads por Nicho</div>
+        ${nichoCounts.length === 0 ? '<div style="color:var(--text3);font-size:12px">Nenhum nicho cadastrado ainda</div>' : `
+        <div class="bar-list">
+          ${nichoCounts.map(({n,c},i) => {
+            const colors = ['#2f81f7','#3fb950','#d29922','#8b5cf6','#f97316','#f85149','#25d366','#e1306c'];
+            return `
+              <div class="bar-item">
+                <div class="bar-label"><span>${n}</span><span style="color:var(--text2);font-family:monospace">${c}</span></div>
+                <div class="bar-track"><div class="bar-fill" style="width:${(c/totalLeads*100).toFixed(1)}%;background:${colors[i%colors.length]}"></div></div>
+              </div>
+            `;
+          }).join('')}
+        </div>`}
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🏙 Top Cidades</div>
+        ${cidadeCounts.length === 0 ? '<div style="color:var(--text3);font-size:12px">Nenhuma cidade cadastrada ainda</div>' : `
+        <div class="bar-list">
+          ${cidadeCounts.map(({c,n}) => `
+            <div class="bar-item">
+              <div class="bar-label"><span>${c}</span><span style="color:var(--text2);font-family:monospace">${n}</span></div>
+              <div class="bar-track"><div class="bar-fill" style="width:${(n/totalLeads*100).toFixed(1)}%;background:var(--accent)"></div></div>
+            </div>
+          `).join('')}
+        </div>`}
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🎯 Resumo de Oportunidades</div>
+        <div style="display:flex;gap:16px;flex-direction:column">
+          ${[['Alta',stats.alta,'var(--green)'],['Média',stats.media,'var(--yellow)'],['Baixa',stats.baixa,'var(--red)']].map(([l,n,c]) => `
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:13px;font-weight:500;color:${c}">${l}</span>
+                <span style="font-size:12px;color:var(--text2)">${n} leads · ${((n/totalLeads)*100).toFixed(0)}%</span>
+              </div>
+              <div class="bar-track" style="height:10px">
+                <div class="bar-fill" style="width:${(n/totalLeads*100).toFixed(1)}%;background:${c}"></div>
+              </div>
+            </div>
+          `).join('')}
+          <div class="section-sep"></div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--text2);font-size:13px">Taxa de conversão</span>
+            <span style="font-weight:700;color:var(--green)">
+              ${leads.length > 0 ? ((leads.filter(l=>l.status==='Fechado').length/leads.length)*100).toFixed(1) : 0}%
+            </span>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--text2);font-size:13px">Leads com telefone</span>
+            <span style="font-weight:700;color:var(--accent)">${stats.comTel} (${leads.length>0?((stats.comTel/leads.length)*100).toFixed(0):0}%)</span>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--text2);font-size:13px">Leads favoritos</span>
+            <span style="font-weight:700;color:#f0c040">${leads.filter(l=>l.favorito).length}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderPrompts() {
+  const templates = [
+    {
+      title: 'Abordagem Inicial WhatsApp',
+      desc: 'Mensagem de primeiro contato para empresas sem site',
+      icon: '💬',
+      template: `Olá, tudo bem? 👋
+
+Sou [SEU NOME], desenvolvedor web. Vi que a [NOME DA EMPRESA] não possui um site próprio ainda, e gostaria de apresentar como um site profissional pode aumentar muito os seus resultados.
+
+Hoje você está no Google Maps com uma avaliação excelente de [AVALIAÇÃO] ⭐, mas sem um site próprio você perde muitos clientes que buscam por serviços como o seu na internet.
+
+Posso criar um site moderno e profissional para a [NOME DA EMPRESA] que vai:
+✅ Aparecer no Google quando clientes buscarem [NICHO] em [CIDADE]
+✅ Mostrar seus serviços, preços e fotos
+✅ Receber pedidos e agendamentos online
+✅ Integrar com WhatsApp e Instagram
+
+Você teria alguns minutos para uma conversa rápida? Tenho um portfólio incrível para te mostrar 🚀`
+    },
+    {
+      title: 'Follow-up (2º contato)',
+      desc: 'Para empresas que não responderam a primeira mensagem',
+      icon: '🔄',
+      template: `Olá [NOME]! Espero que esteja bem.
+
+Passei aqui para retomar nosso contato sobre o site para a [NOME DA EMPRESA].
+
+Acabei de terminar um projeto para uma empresa do mesmo segmento em [CIDADE] e os resultados foram ótimos: aumento de [X]% em contatos orgânicos no primeiro mês.
+
+Sei que é difícil encontrar tempo para tudo, por isso preparei uma proposta bem objetiva. Posso enviar?
+
+Abraços 😊`
+    },
+    {
+      title: 'Proposta de Valor',
+      desc: 'Mensagem focada no ROI e resultados',
+      icon: '💰',
+      template: `Olá [NOME]!
+
+Fiz uma análise rápida da presença online da [NOME DA EMPRESA] e identifiquei uma grande oportunidade:
+
+🔍 Buscas mensais por "[NICHO] em [CIDADE]": ~[X] buscas
+📊 Sua posição atual: apenas no Maps, sem site
+💡 Potencial de clientes perdidos por mês: estimativa de [X]-[X] contatos
+
+Com um site profissional, otimizado para SEO, você aparecerá nas buscas do Google ANTES dos concorrentes que já têm site.
+
+Invistindo em um site hoje, você pode recuperar o valor em [X] novos clientes. Quer que eu te mostre como funciona?`
+    },
+    {
+      title: 'Prompt para gerar proposta com IA',
+      desc: 'Use este prompt no ChatGPT ou Claude para gerar uma proposta personalizada',
+      icon: '🤖',
+      template: `Você é um especialista em desenvolvimento web e vendas. Crie uma proposta comercial profissional e persuasiva para:
+
+EMPRESA: [NOME DA EMPRESA]
+NICHO: [NICHO DO NEGÓCIO]
+CIDADE: [CIDADE/ESTADO]
+AVALIAÇÃO GOOGLE: [NOTA] estrelas com [X] avaliações
+TEM SITE: [SIM/NÃO]
+REDES SOCIAIS: [Instagram/Facebook/etc]
+TELEFONE: [TELEFONE]
+
+A proposta deve incluir:
+1. Diagnóstico da presença digital atual
+2. Oportunidades identificadas
+3. Solução proposta (site + SEO local)
+4. Benefícios específicos para este negócio
+5. Investimento e prazo de entrega
+6. Próximos passos
+7. Garantias oferecidas
+
+Tom: profissional mas acessível, focado em resultados. Máximo 1 página A4.`
+    }
+  ];
+
+  return `
+    <div style="margin-bottom:20px">
+      <div style="font-size:15px;font-weight:600;margin-bottom:6px">Templates de Prospecção</div>
+      <div style="color:var(--text2);font-size:13px">Mensagens prontas para usar com seus leads. Clique em "Copiar" para usar no WhatsApp ou e-mail.</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      ${templates.map((t,i) => `
+        <div class="chart-card" style="display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <span style="font-size:24px">${t.icon}</span>
+            <div>
+              <div style="font-weight:600;font-size:14px">${t.title}</div>
+              <div style="color:var(--text3);font-size:12px">${t.desc}</div>
+            </div>
+          </div>
+          <textarea readonly style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;color:var(--text);font-size:12px;font-family:'Inter',sans-serif;resize:none;height:180px;line-height:1.6;flex:1" id="tpl_${i}">${t.template}</textarea>
+          <button class="btn btn-ghost btn-sm" style="margin-top:10px;align-self:flex-start" onclick="copyText(document.getElementById('tpl_${i}').value)">📋 Copiar template</button>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderNoDB() {
+  document.getElementById('app').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px">
+      <div style="text-align:center;max-width:400px">
+        <div style="font-size:48px;margin-bottom:16px">🔌</div>
+        <div style="font-size:18px;font-weight:700;margin-bottom:8px">Banco de dados indisponível</div>
+        <div style="color:var(--text2);font-size:14px;line-height:1.6">O armazenamento persistente não está disponível nesta sessão. Os dados não serão salvos entre recarregamentos.</div>
+      </div>
+    </div>
+  `;
+}
+
+// ── STATS ──────────────────────────────────────────────────────────────
+function computeStats() {
+  const alta = leads.filter(l=>l.oportunidade==='Alta').length;
+  const media = leads.filter(l=>l.oportunidade==='Média').length;
+  const baixa = leads.filter(l=>l.oportunidade==='Baixa').length;
+  const semSite = leads.filter(l=>!l.site||l.site==='').length;
+  const comTel = leads.filter(l=>l.telefone&&l.telefone!=='').length;
+  const fechados = leads.filter(l=>l.status==='Fechado').length;
+  const ratings = leads.map(l=>parseFloat(l.avaliacao)).filter(n=>!isNaN(n)&&n>0);
+  const avgRating = ratings.length ? (ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(2) : '—';
+  return {alta,media,baixa,semSite,comTel,fechados,avgRating};
+}
+
+// ── MODALS ─────────────────────────────────────────────────────────────
+function configureAPI() {
+  showModal(`
+    <div class="modal-header">
+      <span class="modal-title">🔑 Configurar SerpAPI</span>
+      <button class="action-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:16px;color:var(--text2);font-size:13px;line-height:1.6">
+        Para buscar empresas automaticamente no Google Maps, você precisa de uma chave de API do SerpAPI.
+        <br><br>
+        <strong>Como pegar:</strong><br>
+        1. Acesse <a href="https://serpapi.com/" target="_blank" style="color:var(--accent)">serpapi.com</a><br>
+        2. Clique em "Sign Up"<br>
+        3. Crie sua conta e confirme o email<br>
+        4. Na dashboard, copie sua "API Key"<br>
+        5. Cole aqui abaixo
+        <br><br>
+        Você terá <strong>100 buscas grátis por mês</strong> (nunca expira!)
+      </div>
+      <div class="field" style="margin-bottom:16px">
+        <label>Sua Chave SerpAPI</label>
+        <input type="password" id="apiKeyInput" placeholder="Colar aqui..." value="${apiKey}" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;outline:none;width:100%">
+      </div>
+      <div style="background:var(--surface2);border-left:3px solid var(--yellow);padding:12px;border-radius:4px;font-size:12px;color:var(--text2)">
+        ⚠️ Sua chave é armazenada <strong>apenas no seu navegador</strong>. Nunca será enviada para servidores externos.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveAPIKey()">Salvar Chave</button>
+    </div>
+  `);
+}
+
+function saveAPIKey() {
+  const key = document.getElementById('apiKeyInput')?.value?.trim();
+  if (!key) { showToast('Cole sua chave de API', 'error'); return; }
+  if (key.length < 20) { showToast('Chave parece inválida (muito curta)', 'error'); return; }
+  localStorage.setItem('serpapi_key', key);
+  apiKey = key;
+  closeModal();
+  showToast('Chave salva com sucesso! ✅', 'success');
+}
+
+function openSearch() {
+  if (!apiKey) { showToast('Configure sua chave de API primeiro', 'error'); return; }
+  showModal(`
+    <div class="modal-header">
+      <span class="modal-title">🔍 Buscar Empresas no Google Maps</span>
+      <button class="action-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:16px;color:var(--text2);font-size:13px">Digite o nicho e a cidade para buscar empresas</div>
+      <div class="form-row">
+        <div class="field">
+          <label>Nicho / Segmento *</label>
+          <select id="searchNicho" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;outline:none;width:100%;cursor:pointer">
+            <option value="">Selecionar...</option>
+            ${NICHO_OPTIONS.map(n=>`<option value="${n}">${n}</option>`).join('')}
+            <option value="custom">Outro (personalizado)</option>
+          </select>
+          <input type="text" id="searchNichoCustom" placeholder="Digite o nicho..." style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;outline:none;width:100%;margin-top:8px;display:none">
+        </div>
+        <div class="field">
+          <label>Cidade / Região *</label>
+          <input type="text" id="searchCidade" placeholder="Ex: São Paulo" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;outline:none;width:100%">
+        </div>
+      </div>
+      <div id="searchPreview" style="margin-top:16px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="performSearch()">🔍 Buscar Agora</button>
+    </div>
+  `);
+  document.getElementById('searchNicho').addEventListener('change', function() {
+    const custom = document.getElementById('searchNichoCustom');
+    custom.style.display = this.value === 'custom' ? 'block' : 'none';
+  });
+}
+
+async function performSearch() {
+  let nicho = document.getElementById('searchNicho')?.value?.trim();
+  const nichoCustom = document.getElementById('searchNichoCustom')?.value?.trim();
+  const cidade = document.getElementById('searchCidade')?.value?.trim();
+  
+  if (nicho === 'custom') nicho = nichoCustom;
+  if (!nicho || !cidade) { showToast('Preencha nicho e cidade', 'error'); return; }
+  
+  const preview = document.getElementById('searchPreview');
+  preview.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
+  
+  try {
+    const results = await searchCompanies(nicho, cidade);
+    searchResults = results;
+    
+    if (results.length === 0) {
+      preview.innerHTML = `<div style="color:var(--text3);text-align:center;padding:20px">Nenhuma empresa encontrada para "${nicho}" em "${cidade}"</div>`;
+      return;
+    }
+    
+    preview.innerHTML = `
+      <div style="color:var(--green);margin-bottom:12px;font-weight:600">✅ ${results.length} empresa${results.length!==1?'s':''} encontrada${results.length!==1?'s':''}</div>
+      <div style="background:var(--surface2);border-radius:var(--radius);padding:12px;max-height:300px;overflow-y:auto">
+        ${results.slice(0,10).map((r,i) => `
+          <div style="padding:12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s" onclick="selectSearchResult(${i})" class="search-item-${i}">
+            <div style="font-weight:600;font-size:13px">${r.name}</div>
+            <div style="color:var(--text2);font-size:11px;margin-top:2px">${r.address || '—'}</div>
+            <div style="color:var(--text3);font-size:11px;margin-top:2px">
+              ${r.rating ? '⭐ ' + r.rating + ' (' + r.review_count + ' aval.)' : '—'} 
+              ${r.phone ? ' · 📞 ' + r.phone : ''}
+            </div>
+          </div>
+        `).join('')}
+        ${results.length > 10 ? `<div style="padding:12px;color:var(--text3);text-align:center">... e mais ${results.length-10} empresa${results.length-10!==1?'s':''}</div>` : ''}
+      </div>
+      <div style="margin-top:12px;padding:12px;background:var(--accent-dim);border-radius:var(--radius);color:var(--text2);font-size:12px">
+        Clique em uma empresa para adicionar ao CRM, ou clique em "Adicionar Todos" abaixo
+      </div>
+    `;
+  } catch(e) {
+    preview.innerHTML = `<div style="color:var(--red);padding:16px;background:var(--red-dim);border-radius:var(--radius)">${e.message}</div>`;
+  }
+}
+
+async function searchCompanies(nicho, cidade) {
+  const query = `${nicho} em ${cidade}`;
+  const url = `https://serpapi.com/search?engine=google_maps&q=${encodeURIComponent(query)}&api_key=${apiKey}&num=30`;
+  
+  const response = await fetch(url);
+  const data = await response.json();
+  
+  if (data.error) throw new Error('Erro na API: ' + data.error);
+  if (!data.place_results) return [];
+  
+  return data.place_results.map(p => ({
+    name: p.title || '—',
+    address: p.address || '—',
+    phone: p.phone || '',
+    website: p.website || '',
+    rating: p.rating || null,
+    review_count: p.review_count || 0,
+    maps_url: p.review_url || p.maps_url || '',
+    type: p.type || nicho
+  }));
+}
+
+function selectSearchResult(idx) {
+  const r = searchResults[idx];
+  if (!r) return;
+  selectedLead = r;
+  closeModal();
+  addSearchResultLead(r);
+}
+
+async function addSearchResultLead(r) {
+  if (!db) { showToast('Banco de dados indisponível', 'error'); return; }
+  try {
+    await db.collection('leads').add({
+      nome: r.name || '',
+      nicho: r.type || '',
+      endereco: r.address || '',
+      telefone: r.phone || '',
+      site: r.website || '',
+      googleMaps: r.maps_url || '',
+      avaliacao: r.rating || null,
+      avaliacaoCount: r.review_count || 0,
+      score: null,
+      oportunidade: r.website ? 'Baixa' : 'Alta',
+      status: 'Novo',
+      obs: `Importado do Google Maps (${r.type})`,
+      favorito: false,
+      notas: [],
+      historico: [{status:'Novo', data: formatDate(new Date())}],
+      criadoEm: new Date().toISOString(),
+      atualizadoEm: new Date().toISOString()
+    });
+    showToast(`"${r.name}" adicionado ao CRM ✅`, 'success');
+  } catch(e) {
+    showToast('Erro ao adicionar lead: ' + e.code, 'error');
+  }
+}
+
+function openAddLead() {
+  showModal(`
+    <div class="modal-header">
+      <span class="modal-title">➕ Novo Lead</span>
+      <button class="action-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      ${leadFormHTML({})}
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveLead()">Salvar Lead</button>
+    </div>
+  `);
+}
+
+function openEdit(id) {
+  const l = leads.find(x=>x.id===id);
+  if (!l) return;
+  selectedLead = l;
+  showModal(`
+    <div class="modal-header">
+      <span class="modal-title">✏️ Editar Lead</span>
+      <button class="action-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      ${leadFormHTML(l)}
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveLead('${id}')">Salvar Alterações</button>
+    </div>
+  `);
+}
+
+function openDetail(id) {
+  const l = leads.find(x=>x.id===id);
+  if (!l) return;
+  selectedLead = l;
+  const statusColor = STATUS_COLOR[l.status||'Novo'] || '#8b5cf6';
+  showModal(`
+    <div class="modal-header">
+      <div>
+        <div style="font-size:18px;font-weight:700">${l.nome}</div>
+        <div style="color:var(--text2);font-size:13px;margin-top:2px">${[l.nicho, l.cidade, l.estado].filter(Boolean).join(' · ')}</div>
+      </div>
+      <button class="action-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+        <span class="badge ${{Alta:'badge-alta',Média:'badge-media',Baixa:'badge-baixa'}[l.oportunidade]||'badge-media'}">${l.oportunidade||'—'}</span>
+        <span class="badge" style="background:${statusColor}22;color:${statusColor}">${l.status||'Novo'}</span>
+        <span class="badge ${l.site?'badge-site':'badge-nosite'}">${l.site?'Tem Site':'Sem Site'}</span>
+        ${l.favorito ? '<span class="badge" style="background:#f0c04022;color:#f0c040">⭐ Favorito</span>' : ''}
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">Informações do Negócio</div>
+        <div class="detail-grid">
+          <div class="detail-item"><div class="detail-item-label">Nome</div><div class="detail-item-value">${l.nome||'—'}</div></div>
+          <div class="detail-item"><div class="detail-item-label">Nicho</div><div class="detail-item-value">${l.nicho||'—'}</div></div>
+          <div class="detail-item"><div class="detail-item-label">Cidade</div><div class="detail-item-value">${[l.cidade,l.estado].filter(Boolean).join(' — ')||'—'}</div></div>
+          <div class="detail-item"><div class="detail-item-label">Endereço</div><div class="detail-item-value">${l.endereco||'—'}</div></div>
+          <div class="detail-item"><div class="detail-item-label">Avaliação Google</div><div class="detail-item-value">${l.avaliacao ? '⭐ '+l.avaliacao+' ('+l.avaliacaoCount+' aval.)' : '—'}</div></div>
+          <div class="detail-item"><div class="detail-item-label">Score</div><div class="detail-item-value">${l.score||'—'}</div></div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">Contatos</div>
+        <div class="detail-grid">
+          <div class="detail-item"><div class="detail-item-label">Telefone</div><div class="detail-item-value">${l.telefone||'—'}
+            ${l.telefone?`<button class="contact-link cl-copy" style="margin-left:8px" onclick="copyText('${l.telefone}')">📋</button>`:''}</div></div>
+          <div class="detail-item"><div class="detail-item-label">E-mail</div><div class="detail-item-value">${l.email||'—'}</div></div>
+          <div class="detail-item"><div class="detail-item-label">WhatsApp</div><div class="detail-item-value">${l.telefone?`<a href="https://wa.me/${formatWhatsApp(l.telefone)}" target="_blank" style="color:var(--green)">Abrir WhatsApp</a>`:'—'}</div></div>
+          <div class="detail-item"><div class="detail-item-label">Site</div><div class="detail-item-value">${l.site?`<a href="${l.site}" target="_blank" style="color:var(--accent)">${l.site}</a>`:'Sem site'}</div></div>
+          <div class="detail-item"><div class="detail-item-label">Instagram</div><div class="detail-item-value">${l.instagram?`<a href="${l.instagram}" target="_blank" style="color:#e1306c">${l.instagram}</a>`:'—'}</div></div>
+          <div class="detail-item"><div class="detail-item-label">Google Maps</div><div class="detail-item-value">${l.googleMaps?`<a href="${l.googleMaps}" target="_blank" style="color:var(--red)">Ver no Maps</a>`:'—'}</div></div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">Anotações</div>
+        ${(l.notas||[]).length > 0
+          ? (l.notas||[]).map(n=>`<div class="note-item"><div class="note-meta">${n.data}</div><div class="note-text">${n.texto}</div></div>`).join('')
+          : '<div style="color:var(--text3);font-size:13px">Nenhuma anotação ainda.</div>'
+        }
+        <div style="display:flex;gap:10px;margin-top:12px">
+          <input type="text" id="noteInput_${l.id}" placeholder="Nova anotação..." style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;outline:none">
+          <button class="btn btn-primary btn-sm" onclick="addNote('${l.id}')">Adicionar</button>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">Histórico de Status</div>
+        ${(l.historico||[]).length > 0
+          ? (l.historico||[]).slice().reverse().map(h=>`<div class="note-item"><div class="note-meta">${h.data}</div><div class="note-text">Status alterado para <strong>${h.status}</strong></div></div>`).join('')
+          : '<div style="color:var(--text3);font-size:13px">Nenhuma alteração de status ainda.</div>'
+        }
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" onclick="confirmDelete('${l.id}');closeModal()">🗑 Excluir</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Fechar</button>
+      <button class="btn btn-primary" onclick="closeModal();openEdit('${l.id}')">✏️ Editar</button>
+    </div>
+  `);
+}
+
+function leadFormHTML(l) {
+  return `
+    <div class="form-row">
+      <div class="field">
+        <label>Nome da Empresa *</label>
+        <input id="f_nome" type="text" value="${l.nome||''}" placeholder="Ex: Pizzaria do João">
+      </div>
+      <div class="field">
+        <label>Nicho / Segmento</label>
+        <select id="f_nicho">
+          <option value="">Selecionar...</option>
+          ${NICHO_OPTIONS.map(n=>`<option value="${n}" ${l.nicho===n?'selected':''}>${n}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-row three">
+      <div class="field">
+        <label>Cidade</label>
+        <input id="f_cidade" type="text" value="${l.cidade||''}" placeholder="São Paulo">
+      </div>
+      <div class="field">
+        <label>Estado</label>
+        <input id="f_estado" type="text" value="${l.estado||''}" placeholder="SP">
+      </div>
+      <div class="field">
+        <label>Endereço</label>
+        <input id="f_endereco" type="text" value="${l.endereco||''}" placeholder="Rua...">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Telefone / WhatsApp</label>
+        <input id="f_telefone" type="text" value="${l.telefone||''}" placeholder="11 99999-9999">
+      </div>
+      <div class="field">
+        <label>E-mail</label>
+        <input id="f_email" type="email" value="${l.email||''}" placeholder="contato@empresa.com">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Site (URL)</label>
+        <input id="f_site" type="url" value="${l.site||''}" placeholder="https://...">
+      </div>
+      <div class="field">
+        <label>Instagram</label>
+        <input id="f_instagram" type="url" value="${l.instagram||''}" placeholder="https://instagram.com/...">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Link Google Maps</label>
+        <input id="f_googleMaps" type="url" value="${l.googleMaps||''}" placeholder="https://maps.google.com/...">
+      </div>
+      <div class="field">
+        <label>Facebook</label>
+        <input id="f_facebook" type="url" value="${l.facebook||''}" placeholder="https://facebook.com/...">
+      </div>
+    </div>
+    <div class="form-row three">
+      <div class="field">
+        <label>Avaliação Google (0-5)</label>
+        <input id="f_avaliacao" type="number" step="0.1" min="0" max="5" value="${l.avaliacao||''}" placeholder="4.5">
+      </div>
+      <div class="field">
+        <label>Nº de Avaliações</label>
+        <input id="f_avaliacaoCount" type="text" value="${l.avaliacaoCount||''}" placeholder="1.234 aval.">
+      </div>
+      <div class="field">
+        <label>Score (0-100)</label>
+        <input id="f_score" type="number" min="0" max="100" value="${l.score||''}" placeholder="95">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Oportunidade</label>
+        <select id="f_oportunidade">
+          ${OPP_OPTIONS.map(o=>`<option value="${o}" ${(l.oportunidade||'Média')===o?'selected':''}>${o}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>Status</label>
+        <select id="f_status">
+          ${STATUS_OPTIONS.map(s=>`<option value="${s}" ${(l.status||'Novo')===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-row full">
+      <div class="field">
+        <label>Observações</label>
+        <textarea id="f_obs" placeholder="Anotações sobre este lead...">${l.obs||''}</textarea>
+      </div>
+    </div>
+  `;
+}
+
+async function saveLead(id) {
+  const nome = document.getElementById('f_nome')?.value?.trim();
+  if (!nome) { showToast('Nome da empresa é obrigatório', 'error'); return; }
+
+  const data = {
+    nome, nicho: g('f_nicho'), cidade: g('f_cidade'), estado: g('f_estado'),
+    endereco: g('f_endereco'), telefone: g('f_telefone'), email: g('f_email'),
+    site: g('f_site'), instagram: g('f_instagram'), googleMaps: g('f_googleMaps'),
+    facebook: g('f_facebook'), avaliacao: g('f_avaliacao'), avaliacaoCount: g('f_avaliacaoCount'),
+    score: g('f_score') ? parseInt(g('f_score')) : null,
+    oportunidade: g('f_oportunidade') || 'Média', status: g('f_status') || 'Novo',
+    obs: g('f_obs'), atualizadoEm: new Date().toISOString()
+  };
+
+  try {
+    if (id) {
+      const old = leads.find(l=>l.id===id);
+      const historico = old?.historico || [];
+      if (old?.status !== data.status) {
+        historico.push({ status: data.status, data: formatDate(new Date()) });
+      }
+      data.historico = historico;
+      await db.doc(`leads/${id}`).update(data);
+      showToast('Lead atualizado com sucesso ✅', 'success');
+    } else {
+      data.criadoEm = new Date().toISOString();
+      data.favorito = false;
+      data.notas = [];
+      data.historico = [{ status: data.status, data: formatDate(new Date()) }];
+      await db.collection('leads').add(data);
+      showToast('Lead adicionado com sucesso ✅', 'success');
+    }
+    closeModal();
+  } catch(e) {
+    showToast('Erro ao salvar: ' + e.code, 'error');
+  }
+}
+
+async function updateStatus(id, status) {
+  try {
+    const l = leads.find(x=>x.id===id);
+    const historico = l?.historico || [];
+    historico.push({ status, data: formatDate(new Date()) });
+    await db.doc(`leads/${id}`).update({ status, historico, atualizadoEm: new Date().toISOString() });
+  } catch(e) {
+    showToast('Erro ao atualizar status', 'error');
+  }
+}
+
+async function toggleStar(id, val) {
+  try {
+    await db.doc(`leads/${id}`).update({ favorito: val });
+  } catch(e) {}
+}
+
+async function addNote(id) {
+  const inp = document.getElementById(`noteInput_${id}`);
+  const texto = inp?.value?.trim();
+  if (!texto) return;
+  const l = leads.find(x=>x.id===id);
+  const notas = l?.notas || [];
+  notas.push({ texto, data: formatDate(new Date()) });
+  try {
+    await db.doc(`leads/${id}`).update({ notas });
+    inp.value = '';
+    showToast('Anotação salva ✅', 'success');
+    // Refresh detail
+    setTimeout(()=>openDetail(id), 300);
+  } catch(e) {
+    showToast('Erro ao salvar anotação', 'error');
+  }
+}
+
+function confirmDelete(id) {
+  const l = leads.find(x=>x.id===id);
+  if (!confirm(`Excluir "${l?.nome}"? Esta ação não pode ser desfeita.`)) return;
+  deleteLead(id);
+}
+
+async function deleteLead(id) {
+  try {
+    await db.doc(`leads/${id}`).delete();
+    showToast('Lead excluído', 'success');
+    closeModal();
+  } catch(e) {
+    showToast('Erro ao excluir: ' + e.code, 'error');
+  }
+}
+
+// ── IMPORT / EXPORT ────────────────────────────────────────────────────
+function openImport() {
+  showModal(`
+    <div class="modal-header">
+      <span class="modal-title">⬆ Importar Leads via CSV</span>
+      <button class="action-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:16px;color:var(--text2);font-size:13px;line-height:1.6">
+        Importe um arquivo CSV com seus leads. As colunas suportadas são:<br>
+        <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:12px">
+          nome, nicho, cidade, estado, endereco, telefone, email, site, instagram, googleMaps, avaliacao, avaliacaoCount, score, oportunidade, status
+        </code>
+      </div>
+      <div class="import-area" id="importArea" onclick="document.getElementById('csvFile').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleFileDrop(event)">
+        <div class="import-icon">📂</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:6px">Clique ou arraste um arquivo CSV</div>
+        <div style="color:var(--text3);font-size:13px">Suporta arquivos .csv com cabeçalho</div>
+        <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="handleFileInput(this)">
+      </div>
+      <div id="importPreview" style="margin-top:16px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" id="importBtn" style="display:none" onclick="confirmImport()">Importar Leads</button>
+    </div>
+  `);
+}
+
+let pendingImport = [];
+
+function handleFileDrop(e) {
+  e.preventDefault();
+  document.getElementById('importArea').classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) processCSV(file);
+}
+
+function handleFileInput(inp) {
+  const file = inp.files[0];
+  if (file) processCSV(file);
+}
+
+function processCSV(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.split('\n').filter(Boolean);
+    if (lines.length < 2) { showToast('CSV vazio ou inválido', 'error'); return; }
+    const headers = lines[0].split(',').map(h=>h.trim().replace(/"/g,'').toLowerCase());
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const vals = splitCSVLine(lines[i]);
+      const obj = {};
+      headers.forEach((h,j) => obj[h] = (vals[j]||'').replace(/"/g,'').trim());
+      if (obj.nome) rows.push(obj);
+    }
+    pendingImport = rows;
+    const preview = document.getElementById('importPreview');
+    const importBtn = document.getElementById('importBtn');
+    if (rows.length === 0) {
+      preview.innerHTML = `<div style="color:var(--red)">Nenhum lead válido encontrado no arquivo.</div>`;
+      return;
+    }
+    preview.innerHTML = `
+      <div style="color:var(--green);margin-bottom:10px;font-weight:600">✅ ${rows.length} lead${rows.length!==1?'s':''} encontrado${rows.length!==1?'s':''}</div>
+      <div style="background:var(--surface2);border-radius:var(--radius);padding:12px;max-height:200px;overflow-y:auto">
+        ${rows.slice(0,5).map(r=>`<div style="font-size:12px;color:var(--text2);padding:4px 0;border-bottom:1px solid var(--border)">${r.nome} · ${r.cidade||'—'} · ${r.status||'Novo'}</div>`).join('')}
+        ${rows.length > 5 ? `<div style="font-size:12px;color:var(--text3);padding:4px 0">... e mais ${rows.length-5} leads</div>` : ''}
+      </div>
+    `;
+    importBtn.style.display = 'flex';
+  };
+  reader.readAsText(file);
+}
+
+function splitCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '"') inQuotes = !inQuotes;
+    else if (line[i] === ',' && !inQuotes) { result.push(current); current = ''; }
+    else current += line[i];
+  }
+  result.push(current);
+  return result;
+}
+
+async function confirmImport() {
+  if (!pendingImport.length) return;
+  const btn = document.getElementById('importBtn');
+  btn.textContent = 'Importando...';
+  btn.disabled = true;
+  let ok = 0, err = 0;
+  for (const row of pendingImport) {
+    try {
+      await db.collection('leads').add({
+        nome: row.nome||'', nicho: row.nicho||'', cidade: row.cidade||'',
+        estado: row.estado||'', endereco: row.endereco||'', telefone: row.telefone||'',
+        email: row.email||'', site: row.site||'', instagram: row.instagram||'',
+        googleMaps: row.googlemaps||row.google_maps||'',
+        avaliacao: row.avaliacao ? parseFloat(row.avaliacao) : null,
+        avaliacaoCount: row.avaliacaocount||row.avaliacao_count||'',
+        score: row.score ? parseInt(row.score) : null,
+        oportunidade: row.oportunidade ? capitalize(row.oportunidade) : 'Média',
+        status: row.status ? capitalize(row.status) : 'Novo',
+        obs: row.obs||row.observacoes||'',
+        favorito: false, notas: [], historico: [],
+        criadoEm: new Date().toISOString(), atualizadoEm: new Date().toISOString()
+      });
+      ok++;
+    } catch(e) { err++; }
+  }
+  closeModal();
+  showToast(`${ok} lead${ok!==1?'s':''} importado${ok!==1?'s':''}${err?' ('+err+' erro)':''}  ✅`, 'success');
+  pendingImport = [];
+}
+
+function exportCSV() {
+  const list = filteredLeads.length > 0 ? filteredLeads : leads;
+  if (list.length === 0) { showToast('Nenhum lead para exportar', 'error'); return; }
+  const headers = ['nome','nicho','cidade','estado','endereco','telefone','email','site','instagram','googleMaps','avaliacao','avaliacaoCount','score','oportunidade','status','obs'];
+  const rows = list.map(l => headers.map(h => `"${(l[h]||'').toString().replace(/"/g,'""')}"`).join(','));
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `leads_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+  showToast(`${list.length} leads exportados ✅`, 'success');
+}
+
+// ── HELPERS ────────────────────────────────────────────────────────────
+function g(id) { return document.getElementById(id)?.value?.trim() || ''; }
+function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase(); }
+function formatDate(d) { return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}); }
+function formatWhatsApp(tel) { return tel.replace(/\D/g,''); }
+function clearFilters() { filters = {search:'',cidade:'',status:'',oportunidade:'',site:'',nicho:''}; applyFiltersAndRender(); }
+function switchTab(tab) { currentTab = tab; applyFiltersAndRender(); }
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => showToast('Copiado para a área de transferência ✅', 'success'));
+}
+
+function showModal(html) {
+  closeModal();
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'modal';
+  overlay.innerHTML = `<div class="modal">${html}</div>`;
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+  document.body.appendChild(overlay);
+  currentModal = overlay;
+}
+
+function closeModal() {
+  if (currentModal) { currentModal.remove(); currentModal = null; }
+}
+
+function showToast(msg, type = 'success') {
+  const container = document.getElementById('toasts');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span><span>${msg}</span>`;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+init();
+</script>
+</body>
+</html>
