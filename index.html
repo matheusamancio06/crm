@@ -220,12 +220,21 @@
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
   }
 </style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="loading"><div class="spinner"></div></div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // Supabase config
 const SUPABASE_URL = 'https://smqxwlcaksgejfmorpsz.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtcXh3bGNha3NnZWpmbW9ycHN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwMDkxNjksImV4cCI6MjEwNTU4NTE2OX0.q2BjIppruXG8ocO5VUABGkXw3ZUUQLvgUdr2XettIrU';
 const { createClient } = window.supabase;
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const STATUS_OPTIONS = ['Novo','Contatado','Proposta Enviada','Em Negociação','Fechado','Descartado'];
 const OPP_OPTIONS = ['Alta','Média','Baixa'];
@@ -243,14 +252,6 @@ let selectedLead = null;
 let apiKey = localStorage.getItem('serpapi_key') || '';
 let searchResults = [];
 
-<div class="app" id="app">
-  <div class="loading"><div class="spinner"></div></div>
-</div>
-
-<div class="toast-container" id="toasts"></div>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
-
 // ── INIT ──────────────────────────────────────────────────────────────
 async function init() {
   renderLoading();
@@ -264,23 +265,43 @@ async function init() {
 }
 
 async function loadLeads() {
-  const { data, error } = await supabase
-    .from('leads')
-    .select('*')
-    .order('criadoEm', { ascending: false });
-  
-  if (error) {
-    console.error('Erro ao carregar leads:', error);
-    showToast('Erro ao carregar dados', 'error');
-    return;
+  try {
+    const { data, error } = await sb
+      .from('leads')
+      .select('*')
+      .order('criadoem', { ascending: false });
+    
+    if (error) {
+      const msg = error.message || error.details || error.hint || JSON.stringify(error);
+      console.error('Erro ao carregar leads:', msg, error);
+      renderError('Erro ao carregar dados: ' + msg);
+      return;
+    }
+    
+    leads = data || [];
+    applyFiltersAndRender();
+  } catch(e) {
+    const msg = e?.message || String(e);
+    console.error('Falha de conexão:', msg, e);
+    renderError('Falha de conexão com o banco: ' + msg + ' — isso costuma acontecer no preview do Claude (bloqueia chamadas externas). Teste no link publicado (Netlify).');
   }
-  
-  leads = data || [];
-  applyFiltersAndRender();
+}
+
+function renderError(msg) {
+  document.getElementById('app').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px">
+      <div style="text-align:center;max-width:480px">
+        <div style="font-size:48px;margin-bottom:16px">⚠️</div>
+        <div style="font-size:16px;font-weight:700;margin-bottom:10px;color:var(--red)">Não foi possível carregar os dados</div>
+        <div style="color:var(--text2);font-size:13px;line-height:1.6;background:var(--surface2);padding:12px;border-radius:8px;font-family:monospace;text-align:left;word-break:break-word">${msg}</div>
+        <button class="btn btn-primary btn-sm" style="margin-top:16px" onclick="init()">🔄 Tentar novamente</button>
+      </div>
+    </div>
+  `;
 }
 
 function subscribeLeads() {
-  const subscription = supabase
+  const subscription = sb
     .channel('leads-changes')
     .on('postgres_changes', 
       { event: '*', schema: 'public', table: 'leads' },
@@ -438,7 +459,7 @@ function renderLeadsTab(cidades, nichos) {
             <option value="avaliacao" ${sortField==='avaliacao'?'selected':''}>Avaliação</option>
             <option value="nome" ${sortField==='nome'?'selected':''}>Nome</option>
             <option value="status" ${sortField==='status'?'selected':''}>Status</option>
-            <option value="criadoEm" ${sortField==='criadoEm'?'selected':''}>Data de entrada</option>
+            <option value="criadoem" ${sortField==='criadoem'?'selected':''}>Data de entrada</option>
           </select>
           <select style="font-size:11px;padding:4px 8px" onchange="sortDir=this.value; applyFiltersAndRender()">
             <option value="asc">↑ Asc</option>
@@ -495,14 +516,14 @@ function renderLeadRow(l) {
     </td>
     <td><span class="badge ${oppClass}"><span class="priority-indicator p-${(l.oportunidade||'media').toLowerCase()}"></span>${l.oportunidade || '—'} ${l.score ? '· '+l.score : ''}</span></td>
     <td>
-      ${l.avaliacao ? `<span class="stars">${l.avaliacao}⭐</span><span class="rating-count">${l.avaliacaoCount ? l.avaliacaoCount+' aval.' : ''}</span>` : '<span style="color:var(--text3)">—</span>'}
+      ${l.avaliacao ? `<span class="stars">${l.avaliacao}⭐</span><span class="rating-count">${l.avaliacaocount ? l.avaliacaocount+' aval.' : ''}</span>` : '<span style="color:var(--text3)">—</span>'}
     </td>
     <td><span class="badge ${siteClass}">${siteLabel}</span></td>
     <td style="color:var(--text2);font-size:12px">${l.nicho || '—'}</td>
     <td onclick="event.stopPropagation()">
       <div class="contact-links">
         ${l.telefone ? `<a class="contact-link cl-whatsapp" href="https://wa.me/${formatWhatsApp(l.telefone)}" target="_blank">WhatsApp</a>` : ''}
-        ${l.googleMaps ? `<a class="contact-link cl-maps" href="${l.googleMaps}" target="_blank">Maps</a>` : ''}
+        ${l.googlemaps ? `<a class="contact-link cl-maps" href="${l.googlemaps}" target="_blank">Maps</a>` : ''}
         ${l.site ? `<a class="contact-link cl-site" href="${l.site}" target="_blank">Site</a>` : ''}
         ${l.instagram ? `<a class="contact-link cl-insta" href="${l.instagram}" target="_blank">Insta</a>` : ''}
         ${l.telefone ? `<button class="contact-link cl-copy" onclick="copyText('${l.telefone}')">📋 Tel</button>` : ''}
@@ -920,7 +941,7 @@ function selectSearchResult(idx) {
 
 async function addSearchResultLead(r) {
   try {
-    const { error } = await supabase
+    const { error } = await sb
       .from('leads')
       .insert([{
         nome: r.name || '',
@@ -928,9 +949,9 @@ async function addSearchResultLead(r) {
         endereco: r.address || '',
         telefone: r.phone || '',
         site: r.website || '',
-        googleMaps: r.maps_url || '',
+        googlemaps: r.maps_url || '',
         avaliacao: r.rating || null,
-        avaliacaoCount: r.review_count || 0,
+        avaliacaocount: r.review_count || 0,
         score: null,
         oportunidade: r.website ? 'Baixa' : 'Alta',
         status: 'Novo',
@@ -938,8 +959,8 @@ async function addSearchResultLead(r) {
         favorito: false,
         notas: [],
         historico: [{status:'Novo', data: formatDate(new Date())}],
-        criadoEm: new Date().toISOString(),
-        atualizadoEm: new Date().toISOString()
+        criadoem: new Date().toISOString(),
+        atualizadoem: new Date().toISOString()
       }]);
     
     if (error) throw error;
@@ -1013,7 +1034,7 @@ function openDetail(id) {
           <div class="detail-item"><div class="detail-item-label">Nicho</div><div class="detail-item-value">${l.nicho||'—'}</div></div>
           <div class="detail-item"><div class="detail-item-label">Cidade</div><div class="detail-item-value">${[l.cidade,l.estado].filter(Boolean).join(' — ')||'—'}</div></div>
           <div class="detail-item"><div class="detail-item-label">Endereço</div><div class="detail-item-value">${l.endereco||'—'}</div></div>
-          <div class="detail-item"><div class="detail-item-label">Avaliação Google</div><div class="detail-item-value">${l.avaliacao ? '⭐ '+l.avaliacao+' ('+l.avaliacaoCount+' aval.)' : '—'}</div></div>
+          <div class="detail-item"><div class="detail-item-label">Avaliação Google</div><div class="detail-item-value">${l.avaliacao ? '⭐ '+l.avaliacao+' ('+l.avaliacaocount+' aval.)' : '—'}</div></div>
           <div class="detail-item"><div class="detail-item-label">Score</div><div class="detail-item-value">${l.score||'—'}</div></div>
         </div>
       </div>
@@ -1027,7 +1048,7 @@ function openDetail(id) {
           <div class="detail-item"><div class="detail-item-label">WhatsApp</div><div class="detail-item-value">${l.telefone?`<a href="https://wa.me/${formatWhatsApp(l.telefone)}" target="_blank" style="color:var(--green)">Abrir WhatsApp</a>`:'—'}</div></div>
           <div class="detail-item"><div class="detail-item-label">Site</div><div class="detail-item-value">${l.site?`<a href="${l.site}" target="_blank" style="color:var(--accent)">${l.site}</a>`:'Sem site'}</div></div>
           <div class="detail-item"><div class="detail-item-label">Instagram</div><div class="detail-item-value">${l.instagram?`<a href="${l.instagram}" target="_blank" style="color:#e1306c">${l.instagram}</a>`:'—'}</div></div>
-          <div class="detail-item"><div class="detail-item-label">Google Maps</div><div class="detail-item-value">${l.googleMaps?`<a href="${l.googleMaps}" target="_blank" style="color:var(--red)">Ver no Maps</a>`:'—'}</div></div>
+          <div class="detail-item"><div class="detail-item-label">Google Maps</div><div class="detail-item-value">${l.googlemaps?`<a href="${l.googlemaps}" target="_blank" style="color:var(--red)">Ver no Maps</a>`:'—'}</div></div>
         </div>
       </div>
 
@@ -1111,7 +1132,7 @@ function leadFormHTML(l) {
     <div class="form-row">
       <div class="field">
         <label>Link Google Maps</label>
-        <input id="f_googleMaps" type="url" value="${l.googleMaps||''}" placeholder="https://maps.google.com/...">
+        <input id="f_googleMaps" type="url" value="${l.googlemaps||''}" placeholder="https://maps.google.com/...">
       </div>
       <div class="field">
         <label>Facebook</label>
@@ -1125,7 +1146,7 @@ function leadFormHTML(l) {
       </div>
       <div class="field">
         <label>Nº de Avaliações</label>
-        <input id="f_avaliacaoCount" type="text" value="${l.avaliacaoCount||''}" placeholder="1.234 aval.">
+        <input id="f_avaliacaoCount" type="text" value="${l.avaliacaocount||''}" placeholder="1.234 aval.">
       </div>
       <div class="field">
         <label>Score (0-100)</label>
@@ -1162,12 +1183,12 @@ async function saveLead(id) {
   const data = {
     nome, nicho: g('f_nicho'), cidade: g('f_cidade'), estado: g('f_estado'),
     endereco: g('f_endereco'), telefone: g('f_telefone'), email: g('f_email'),
-    site: g('f_site'), instagram: g('f_instagram'), googleMaps: g('f_googleMaps'),
+    site: g('f_site'), instagram: g('f_instagram'), googlemaps: g('f_googleMaps'),
     facebook: g('f_facebook'), avaliacao: g('f_avaliacao') ? parseFloat(g('f_avaliacao')) : null, 
-    avaliacaoCount: g('f_avaliacaoCount'),
+    avaliacaocount: g('f_avaliacaoCount'),
     score: g('f_score') ? parseInt(g('f_score')) : null,
     oportunidade: g('f_oportunidade') || 'Média', status: g('f_status') || 'Novo',
-    obs: g('f_obs'), atualizadoEm: new Date().toISOString()
+    obs: g('f_obs'), atualizadoem: new Date().toISOString()
   };
 
   try {
@@ -1179,7 +1200,7 @@ async function saveLead(id) {
       }
       data.historico = historico;
       
-      const { error } = await supabase
+      const { error } = await sb
         .from('leads')
         .update(data)
         .eq('id', id);
@@ -1190,9 +1211,9 @@ async function saveLead(id) {
       data.favorito = false;
       data.notas = [];
       data.historico = [{ status: data.status, data: formatDate(new Date()) }];
-      data.criadoEm = new Date().toISOString();
+      data.criadoem = new Date().toISOString();
       
-      const { error } = await supabase
+      const { error } = await sb
         .from('leads')
         .insert([data]);
       
@@ -1212,9 +1233,9 @@ async function updateStatus(id, status) {
     const historico = l?.historico || [];
     historico.push({ status, data: formatDate(new Date()) });
     
-    const { error } = await supabase
+    const { error } = await sb
       .from('leads')
-      .update({ status, historico, atualizadoEm: new Date().toISOString() })
+      .update({ status, historico, atualizadoem: new Date().toISOString() })
       .eq('id', id);
     
     if (error) throw error;
@@ -1226,7 +1247,7 @@ async function updateStatus(id, status) {
 
 async function toggleStar(id, val) {
   try {
-    const { error } = await supabase
+    const { error } = await sb
       .from('leads')
       .update({ favorito: val })
       .eq('id', id);
@@ -1246,7 +1267,7 @@ async function addNote(id) {
   const notas = l?.notas || [];
   notas.push({ texto, data: formatDate(new Date()) });
   try {
-    const { error } = await supabase
+    const { error } = await sb
       .from('leads')
       .update({ notas })
       .eq('id', id);
@@ -1269,7 +1290,7 @@ function confirmDelete(id) {
 
 async function deleteLead(id) {
   try {
-    const { error } = await supabase
+    const { error } = await sb
       .from('leads')
       .delete()
       .eq('id', id);
@@ -1294,7 +1315,7 @@ function openImport() {
       <div style="margin-bottom:16px;color:var(--text2);font-size:13px;line-height:1.6">
         Importe um arquivo CSV com seus leads. As colunas suportadas são:<br>
         <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:12px">
-          nome, nicho, cidade, estado, endereco, telefone, email, site, instagram, googleMaps, avaliacao, avaliacaoCount, score, oportunidade, status
+          nome, nicho, cidade, estado, endereco, telefone, email, site, instagram, googlemaps, avaliacao, avaliacaocount, score, oportunidade, status
         </code>
       </div>
       <div class="import-area" id="importArea" onclick="document.getElementById('csvFile').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleFileDrop(event)">
@@ -1382,19 +1403,19 @@ async function confirmImport() {
     nome: row.nome||'', nicho: row.nicho||'', cidade: row.cidade||'',
     estado: row.estado||'', endereco: row.endereco||'', telefone: row.telefone||'',
     email: row.email||'', site: row.site||'', instagram: row.instagram||'',
-    googleMaps: row.googlemaps||row.google_maps||'',
+    googlemaps: row.googlemaps||row.google_maps||'',
     avaliacao: row.avaliacao ? parseFloat(row.avaliacao) : null,
-    avaliacaoCount: row.avaliacaocount||row.avaliacao_count||'',
+    avaliacaocount: row.avaliacaocount||row.avaliacao_count||'',
     score: row.score ? parseInt(row.score) : null,
     oportunidade: row.oportunidade ? capitalize(row.oportunidade) : 'Média',
     status: row.status ? capitalize(row.status) : 'Novo',
     obs: row.obs||row.observacoes||'',
     favorito: false, notas: [], historico: [],
-    criadoEm: new Date().toISOString(), atualizadoEm: new Date().toISOString()
+    criadoem: new Date().toISOString(), atualizadoem: new Date().toISOString()
   }));
   
   try {
-    const { error } = await supabase
+    const { error } = await sb
       .from('leads')
       .insert(leadsToInsert);
     
@@ -1413,7 +1434,7 @@ async function confirmImport() {
 function exportCSV() {
   const list = filteredLeads.length > 0 ? filteredLeads : leads;
   if (list.length === 0) { showToast('Nenhum lead para exportar', 'error'); return; }
-  const headers = ['nome','nicho','cidade','estado','endereco','telefone','email','site','instagram','googleMaps','avaliacao','avaliacaoCount','score','oportunidade','status','obs'];
+  const headers = ['nome','nicho','cidade','estado','endereco','telefone','email','site','instagram','googlemaps','avaliacao','avaliacaocount','score','oportunidade','status','obs'];
   const rows = list.map(l => headers.map(h => `"${(l[h]||'').toString().replace(/"/g,'""')}"`).join(','));
   const csv = [headers.join(','), ...rows].join('\n');
   const blob = new Blob([csv], {type:'text/csv'});
