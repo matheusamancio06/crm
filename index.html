@@ -220,21 +220,18 @@
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
   }
 </style>
-</head>
-<body>
-<div class="app" id="app">
-  <div class="loading"><div class="spinner"></div></div>
-</div>
-
-<div class="toast-container" id="toasts"></div>
-
 <script>
+// Supabase config
+const SUPABASE_URL = 'https://smqxwlcaksgejfmorpsz.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtcXh3bGNha3NnZWpmbW9ycHN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwMDkxNjksImV4cCI6MjEwNTU4NTE2OX0.q2BjIppruXG8ocO5VUABGkXw3ZUUQLvgUdr2XettIrU';
+const { createClient } = window.supabase;
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const STATUS_OPTIONS = ['Novo','Contatado','Proposta Enviada','Em Negociação','Fechado','Descartado'];
 const OPP_OPTIONS = ['Alta','Média','Baixa'];
 const NICHO_OPTIONS = ['Restaurante','Bar/Lanchonete','Salão de Beleza','Academia','Clínica','Advocacia','Contabilidade','Imobiliária','Comércio','Serviços','Educação','Hotel/Pousada','Petshop','Farmácia','Outros'];
 const STATUS_COLOR = { 'Novo':'#8b5cf6','Contatado':'#2f81f7','Proposta Enviada':'#d29922','Em Negociação':'#f97316','Fechado':'#3fb950','Descartado':'#f85149' };
 
-let db = null;
 let leads = [];
 let filteredLeads = [];
 let currentTab = 'leads';
@@ -243,30 +240,55 @@ let sortField = 'oportunidade';
 let sortDir = 'desc';
 let currentModal = null;
 let selectedLead = null;
-let unsubLeads = null;
 let apiKey = localStorage.getItem('serpapi_key') || '';
 let searchResults = [];
 
+<div class="app" id="app">
+  <div class="loading"><div class="spinner"></div></div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+
 // ── INIT ──────────────────────────────────────────────────────────────
 async function init() {
+  renderLoading();
   try {
-    db = await claude.use('db');
-    if (!db) { renderNoDB(); return; }
+    await loadLeads();
     subscribeLeads();
   } catch(e) {
-    renderNoDB();
+    console.error(e);
+    showToast('Erro ao conectar ao banco: ' + e.message, 'error');
   }
 }
 
+async function loadLeads() {
+  const { data, error } = await supabase
+    .from('leads')
+    .select('*')
+    .order('criadoEm', { ascending: false });
+  
+  if (error) {
+    console.error('Erro ao carregar leads:', error);
+    showToast('Erro ao carregar dados', 'error');
+    return;
+  }
+  
+  leads = data || [];
+  applyFiltersAndRender();
+}
+
 function subscribeLeads() {
-  if (unsubLeads) unsubLeads();
-  unsubLeads = db.collection('leads').onSnapshot(snap => {
-    leads = snap.docs.map(d => ({id: d.id, ...d.data()}));
-    applyFiltersAndRender();
-  }, err => {
-    console.error(err);
-    showToast('Erro ao carregar leads: ' + err.code, 'error');
-  });
+  const subscription = supabase
+    .channel('leads-changes')
+    .on('postgres_changes', 
+      { event: '*', schema: 'public', table: 'leads' },
+      payload => {
+        loadLeads();
+      }
+    )
+    .subscribe();
 }
 
 // ── FILTER & SORT ──────────────────────────────────────────────────────
@@ -716,13 +738,12 @@ Tom: profissional mas acessível, focado em resultados. Máximo 1 página A4.`
   `;
 }
 
-function renderNoDB() {
+function renderLoading() {
   document.getElementById('app').innerHTML = `
     <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px">
-      <div style="text-align:center;max-width:400px">
-        <div style="font-size:48px;margin-bottom:16px">🔌</div>
-        <div style="font-size:18px;font-weight:700;margin-bottom:8px">Banco de dados indisponível</div>
-        <div style="color:var(--text2);font-size:14px;line-height:1.6">O armazenamento persistente não está disponível nesta sessão. Os dados não serão salvos entre recarregamentos.</div>
+      <div style="text-align:center">
+        <div class="loading"><div class="spinner"></div></div>
+        <div style="color:var(--text2);font-size:14px;margin-top:16px">Carregando dados...</div>
       </div>
     </div>
   `;
@@ -898,30 +919,34 @@ function selectSearchResult(idx) {
 }
 
 async function addSearchResultLead(r) {
-  if (!db) { showToast('Banco de dados indisponível', 'error'); return; }
   try {
-    await db.collection('leads').add({
-      nome: r.name || '',
-      nicho: r.type || '',
-      endereco: r.address || '',
-      telefone: r.phone || '',
-      site: r.website || '',
-      googleMaps: r.maps_url || '',
-      avaliacao: r.rating || null,
-      avaliacaoCount: r.review_count || 0,
-      score: null,
-      oportunidade: r.website ? 'Baixa' : 'Alta',
-      status: 'Novo',
-      obs: `Importado do Google Maps (${r.type})`,
-      favorito: false,
-      notas: [],
-      historico: [{status:'Novo', data: formatDate(new Date())}],
-      criadoEm: new Date().toISOString(),
-      atualizadoEm: new Date().toISOString()
-    });
+    const { error } = await supabase
+      .from('leads')
+      .insert([{
+        nome: r.name || '',
+        nicho: r.type || '',
+        endereco: r.address || '',
+        telefone: r.phone || '',
+        site: r.website || '',
+        googleMaps: r.maps_url || '',
+        avaliacao: r.rating || null,
+        avaliacaoCount: r.review_count || 0,
+        score: null,
+        oportunidade: r.website ? 'Baixa' : 'Alta',
+        status: 'Novo',
+        obs: `Importado do Google Maps (${r.type})`,
+        favorito: false,
+        notas: [],
+        historico: [{status:'Novo', data: formatDate(new Date())}],
+        criadoEm: new Date().toISOString(),
+        atualizadoEm: new Date().toISOString()
+      }]);
+    
+    if (error) throw error;
     showToast(`"${r.name}" adicionado ao CRM ✅`, 'success');
+    await loadLeads();
   } catch(e) {
-    showToast('Erro ao adicionar lead: ' + e.code, 'error');
+    showToast('Erro ao adicionar lead: ' + e.message, 'error');
   }
 }
 
@@ -1138,7 +1163,8 @@ async function saveLead(id) {
     nome, nicho: g('f_nicho'), cidade: g('f_cidade'), estado: g('f_estado'),
     endereco: g('f_endereco'), telefone: g('f_telefone'), email: g('f_email'),
     site: g('f_site'), instagram: g('f_instagram'), googleMaps: g('f_googleMaps'),
-    facebook: g('f_facebook'), avaliacao: g('f_avaliacao'), avaliacaoCount: g('f_avaliacaoCount'),
+    facebook: g('f_facebook'), avaliacao: g('f_avaliacao') ? parseFloat(g('f_avaliacao')) : null, 
+    avaliacaoCount: g('f_avaliacaoCount'),
     score: g('f_score') ? parseInt(g('f_score')) : null,
     oportunidade: g('f_oportunidade') || 'Média', status: g('f_status') || 'Novo',
     obs: g('f_obs'), atualizadoEm: new Date().toISOString()
@@ -1152,19 +1178,31 @@ async function saveLead(id) {
         historico.push({ status: data.status, data: formatDate(new Date()) });
       }
       data.historico = historico;
-      await db.doc(`leads/${id}`).update(data);
+      
+      const { error } = await supabase
+        .from('leads')
+        .update(data)
+        .eq('id', id);
+      
+      if (error) throw error;
       showToast('Lead atualizado com sucesso ✅', 'success');
     } else {
-      data.criadoEm = new Date().toISOString();
       data.favorito = false;
       data.notas = [];
       data.historico = [{ status: data.status, data: formatDate(new Date()) }];
-      await db.collection('leads').add(data);
+      data.criadoEm = new Date().toISOString();
+      
+      const { error } = await supabase
+        .from('leads')
+        .insert([data]);
+      
+      if (error) throw error;
       showToast('Lead adicionado com sucesso ✅', 'success');
     }
     closeModal();
+    await loadLeads();
   } catch(e) {
-    showToast('Erro ao salvar: ' + e.code, 'error');
+    showToast('Erro ao salvar: ' + e.message, 'error');
   }
 }
 
@@ -1173,7 +1211,14 @@ async function updateStatus(id, status) {
     const l = leads.find(x=>x.id===id);
     const historico = l?.historico || [];
     historico.push({ status, data: formatDate(new Date()) });
-    await db.doc(`leads/${id}`).update({ status, historico, atualizadoEm: new Date().toISOString() });
+    
+    const { error } = await supabase
+      .from('leads')
+      .update({ status, historico, atualizadoEm: new Date().toISOString() })
+      .eq('id', id);
+    
+    if (error) throw error;
+    await loadLeads();
   } catch(e) {
     showToast('Erro ao atualizar status', 'error');
   }
@@ -1181,8 +1226,16 @@ async function updateStatus(id, status) {
 
 async function toggleStar(id, val) {
   try {
-    await db.doc(`leads/${id}`).update({ favorito: val });
-  } catch(e) {}
+    const { error } = await supabase
+      .from('leads')
+      .update({ favorito: val })
+      .eq('id', id);
+    
+    if (error) throw error;
+    await loadLeads();
+  } catch(e) {
+    showToast('Erro ao atualizar favorito', 'error');
+  }
 }
 
 async function addNote(id) {
@@ -1193,10 +1246,15 @@ async function addNote(id) {
   const notas = l?.notas || [];
   notas.push({ texto, data: formatDate(new Date()) });
   try {
-    await db.doc(`leads/${id}`).update({ notas });
+    const { error } = await supabase
+      .from('leads')
+      .update({ notas })
+      .eq('id', id);
+    
+    if (error) throw error;
     inp.value = '';
     showToast('Anotação salva ✅', 'success');
-    // Refresh detail
+    await loadLeads();
     setTimeout(()=>openDetail(id), 300);
   } catch(e) {
     showToast('Erro ao salvar anotação', 'error');
@@ -1211,11 +1269,17 @@ function confirmDelete(id) {
 
 async function deleteLead(id) {
   try {
-    await db.doc(`leads/${id}`).delete();
+    const { error } = await supabase
+      .from('leads')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
     showToast('Lead excluído', 'success');
     closeModal();
+    await loadLeads();
   } catch(e) {
-    showToast('Erro ao excluir: ' + e.code, 'error');
+    showToast('Erro ao excluir: ' + e.message, 'error');
   }
 }
 
@@ -1313,28 +1377,37 @@ async function confirmImport() {
   btn.textContent = 'Importando...';
   btn.disabled = true;
   let ok = 0, err = 0;
-  for (const row of pendingImport) {
-    try {
-      await db.collection('leads').add({
-        nome: row.nome||'', nicho: row.nicho||'', cidade: row.cidade||'',
-        estado: row.estado||'', endereco: row.endereco||'', telefone: row.telefone||'',
-        email: row.email||'', site: row.site||'', instagram: row.instagram||'',
-        googleMaps: row.googlemaps||row.google_maps||'',
-        avaliacao: row.avaliacao ? parseFloat(row.avaliacao) : null,
-        avaliacaoCount: row.avaliacaocount||row.avaliacao_count||'',
-        score: row.score ? parseInt(row.score) : null,
-        oportunidade: row.oportunidade ? capitalize(row.oportunidade) : 'Média',
-        status: row.status ? capitalize(row.status) : 'Novo',
-        obs: row.obs||row.observacoes||'',
-        favorito: false, notas: [], historico: [],
-        criadoEm: new Date().toISOString(), atualizadoEm: new Date().toISOString()
-      });
-      ok++;
-    } catch(e) { err++; }
+  
+  const leadsToInsert = pendingImport.map(row => ({
+    nome: row.nome||'', nicho: row.nicho||'', cidade: row.cidade||'',
+    estado: row.estado||'', endereco: row.endereco||'', telefone: row.telefone||'',
+    email: row.email||'', site: row.site||'', instagram: row.instagram||'',
+    googleMaps: row.googlemaps||row.google_maps||'',
+    avaliacao: row.avaliacao ? parseFloat(row.avaliacao) : null,
+    avaliacaoCount: row.avaliacaocount||row.avaliacao_count||'',
+    score: row.score ? parseInt(row.score) : null,
+    oportunidade: row.oportunidade ? capitalize(row.oportunidade) : 'Média',
+    status: row.status ? capitalize(row.status) : 'Novo',
+    obs: row.obs||row.observacoes||'',
+    favorito: false, notas: [], historico: [],
+    criadoEm: new Date().toISOString(), atualizadoEm: new Date().toISOString()
+  }));
+  
+  try {
+    const { error } = await supabase
+      .from('leads')
+      .insert(leadsToInsert);
+    
+    if (error) throw error;
+    ok = pendingImport.length;
+  } catch(e) {
+    err = pendingImport.length;
   }
+  
   closeModal();
   showToast(`${ok} lead${ok!==1?'s':''} importado${ok!==1?'s':''}${err?' ('+err+' erro)':''}  ✅`, 'success');
   pendingImport = [];
+  await loadLeads();
 }
 
 function exportCSV() {
